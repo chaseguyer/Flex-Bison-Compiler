@@ -1,3 +1,6 @@
+#ifndef _GLOBALS_H_
+#define _GLOBALS_H_
+
 #include<stdio.h>
 #include<stdlib.h>
 
@@ -6,7 +9,7 @@ typedef enum {FunK, VarK, ParamK} DeclKind;
 typedef enum {IfK, WhileK, ForeachK, CompK, ReturnK, BreakK} StmtKind;
 typedef enum {OpK, ConstK, IdK, CallK, AssignK} ExpKind;
 typedef enum {EqK, LesseqK, LessK, GrtK, GrteqK, NoteqK, PlusK, MinusK, StarK, FwdslashK, ModK, QuesK} OpKind;
-typedef enum {Void, Integer, Boolean, Character} ExpType;
+typedef enum {Void, Integer, Boolean, Character, Error, Undefined} ExpType;
 typedef enum {numconst, charconst, stringconst, boolconst} ConstType;
 
 #define MAXCHILDREN 3
@@ -38,3 +41,5 @@ typedef struct treeNode {
 	bool isArray;				// is this an array
 	int arrayLen;				// length of array
 } TreeNode;
+
+#endif

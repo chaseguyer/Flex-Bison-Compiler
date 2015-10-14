@@ -1,18 +1,7 @@
 #include "symTab.h"
+#include "tree.h"
 
 using namespace std;
-
-/*
-int counter;
-void pointerPrintAddr(void *data) {
-	printf("0x%016llx ", (unsigned long long int)(data));
-}
-
-void pointerPrintStr(void *data) {
-	printf("%s ", (char*)(data));
-}
-*/
-
 
 // Class Scope
 Scope::Scope(string newname) {

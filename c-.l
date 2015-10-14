@@ -1,5 +1,7 @@
 %{
 #include "tree.c"
+#include "semantic.c"
+#include "symTab.cpp"
 #include <stdlib.h>
 #include <string.h>
 #include "c-.tab.h"
@@ -57,7 +59,6 @@ char* makeEscapeCharS(char* input) {
 %option yylineno
 %option noyywrap
 %x COMMENT
-%x COMMENT_BLOCK
 
 %%
 
@@ -65,9 +66,6 @@ char* makeEscapeCharS(char* input) {
 "//"				{ BEGIN(COMMENT); }
 <COMMENT>.			;
 <COMMENT>"\n"		{ BEGIN(INITIAL); }
-"/*"				{ BEGIN(COMMENT_BLOCK); }
-<COMMENT_BLOCK>.	;
-<COMMENT_BLOCK>"*/"	{ BEGIN(INITIAL); }
 [#^_@'"~]			{ yylval.token.input = strdup(yytext); return ERROR; }
 "true"				{ yylval.token.input = strdup(yytext); yylval.token.bconst = 1; return BOOLCONST; }
 "false"				{ yylval.token.input = strdup(yytext); yylval.token.bconst = 0; return BOOLCONST; }
@@ -116,6 +114,6 @@ char* makeEscapeCharS(char* input) {
 [0-9]+				{ yylval.token.input = strdup(yytext); yylval.token.nconst = atoi(yytext); return NUMCONST; }
 \"(.)*\"			{ yylval.token.input = strdup(yytext); yylval.token.sconst = makeEscapeCharS(yytext); return STRINGCONST; }
 '(.)*'				{ yylval.token.input = strdup(yytext); yylval.token.cconst = makeEscapeCharC(yytext); return CHARCONST; }
-[a-zA-Z]+[0-9]*		{ yylval.token.input = strdup(yytext); yylval.token.id = strdup(yytext); return ID; }
+[a-zA-Z]+[a-zA-Z0-9]* { yylval.token.input = strdup(yytext); yylval.token.id = strdup(yytext); return ID; }
 .					{ yylval.token.input = strdup(yytext); return yytext[0]; }
 %%

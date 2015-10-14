@@ -2,6 +2,8 @@
 #include"globals.h"
 #include"tree.h"
 #include"struct.h"
+#include"semantic.h"
+#include"symTab.h"
 #include<iostream>
 #include<stdio.h>
 #include<stdlib.h>
@@ -9,12 +11,15 @@
 #include<getopt.h>
 #define YYERROR_VERBOSE
 
+using namespace std;
+
 extern int yylex();
 extern int yylineno;
 extern FILE *yyin;
 
 TreeNode *syntaxTree = NULL;
 
+int numWarnings = 0, numErrors = 0;
 void yyerror(const char *msg) {printf("ERROR(PARSER): %s on line %d\n", msg, yylineno); }
 char cconstError(char, char*);
 
@@ -147,7 +152,6 @@ scoped_var_declaration	: scoped_type_specifier var_decl_list SEMICOLON {
 									t -> type = (ExpType)$1 -> type;
 									t -> ctype = (ConstType)$1 -> ctype;
 									t -> isStatic = $1 -> isStatic;
-									//t -> isArray = $1 -> isArray;
 									t -> arrayLen = $1 -> arrayLen;
 									t = t -> sibling;
 								} while(t != NULL); 
@@ -625,7 +629,7 @@ immutable				: LPEREN expression RPEREN {
 						;
 
 call					: ID LPEREN args RPEREN {
-							$$ = newExpNode(CallK, $2); // <---------
+							$$ = newExpNode(CallK, $2); 
 							$$ -> attr.name = $1;
 							$$ -> child[0] = $3;	
 						}
@@ -675,21 +679,51 @@ constant				: NUMCONST {
 						;
 %%
 
+// SYM TAB TEST FUNC
+
+/*
+void pointerPrintAddr(void *data) {
+    printf("0x%016llx ", (unsigned long long int)(data));
+}
+
+void pointerPrintStr(void *data) {
+    printf("%s ", (char*)(data));
+}
+string words[] = {"alfa", "bravo", "charlie", "dog", "echo", "foxtrot", "golf"};
+int wordsLen = 7;
+
+int counter;
+void countSymbols(string sym, void *ptr) {
+    counter++;
+    printf("%d %20s: ", counter, sym.c_str());
+    pointerPrintAddr(ptr);
+    printf("\n");
+}
+*/
+
+// SYM TAB TEST FUNC
+
 int main(int args, char** argv) {
 	FILE* fptr;
 
-	int c;
-	while((c = getopt(args, argv, "d")) != -1) {
+	int c, pFlag = 0, PFlag = 0;
+	while((c = getopt(args, argv, "dpP")) != EOF) {
 		switch(c) {
 			case 'd':
 				yydebug = 1;
+				break;
+			case 'p':
+				pFlag = 1;
+				break;
+			case 'P':
+				PFlag = 1;
 				break;
 			default:
 				break;
 		}
 	}
 
-	if(yydebug == 1) 
+	if(yydebug == 1 || pFlag == 1 || PFlag == 1) 
 		fptr = fopen(argv[2], "r");
 	else  
 		fptr = fopen(argv[1], "r");
@@ -699,8 +733,13 @@ int main(int args, char** argv) {
 	do {	
 		yyparse();
 	} while (!feof(yyin));
-	printTree(stdout, syntaxTree, 0	, 0);
-	int numWarnings = 0, numErrors = 0;
+
+	// Bool of last arg is NOTYPE vs TYPE
+	if(pFlag) printTree(stdout, syntaxTree, 0, 0, 0); 
+	if(numErrors == 0) scopeAndType(syntaxTree); // semantic analysis
+	if(PFlag) printTree(stdout, syntaxTree, 0, 0, 1);  
+
 	printf("Number of warnings: %d\nNumber of errors: %d\n", numWarnings, numErrors);
 	return 0;
+	
 }

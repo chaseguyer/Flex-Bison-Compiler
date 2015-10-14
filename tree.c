@@ -4,6 +4,8 @@
 #include"tree.h"
 #include"struct.h"
 
+extern int numErrors, numWarnings;
+
 TreeNode * newStmtNode(StmtKind kind, int lineNum) {
     TreeNode *t = (TreeNode *) malloc(sizeof(TreeNode));
     int i;
@@ -59,7 +61,6 @@ int cCount = 0;
 #define INDENT indentno+=3
 #define UNINDENT indentno-=3
 
-
 static void printSpacing(TreeNode *t, int sCount, int indentIndex) { 
 	for(int i = 0; i < (indentno/3); i++) {
 		printf("|   ");
@@ -71,7 +72,10 @@ static void printSpacing(TreeNode *t, int sCount, int indentIndex) {
 		printf("|Sibling: %d  ", sCount);
 }
 
-void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex) {
+void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool TYPE) {
+	if(TYPE == 1) {
+	}
+	TYPE = 0;
 	if(firstRun != 1) {INDENT;}
 	firstRun = 0;
 	while(tree != NULL) {
@@ -178,7 +182,7 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex) {
 
 		for(int i = 0; i < MAXCHILDREN; i++) {
 			cCount = i+1;
-			printTree(stdout, tree -> child[i], 0, 0);
+			printTree(stdout, tree -> child[i], 0, 0, TYPE);
 			cCount = 0;
 		}
 		tree = tree -> sibling;

@@ -30,4 +30,4 @@ pdf:	cminus.y cminus.l makefile
 	rm *.tex
 
 tar:
-	tar -cvf $(BIN).tar $(SRCS) struct.h globals.h tree.h tree.c makefile  
+	tar -cvf $(BIN).tar $(SRCS) struct.h globals.h tree.h tree.c symTab.cpp symTab.h makefile  
