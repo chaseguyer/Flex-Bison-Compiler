@@ -10,12 +10,16 @@ void pointerPrintStr(void *data) {
     printf("%s ", (char*)(data));
 }
 
-TreeNode *ptr;
+TreeNode *ptr, *lhs, *rhs;
 int childIndex = 0;
+
+int leftH;
+int rightH;
 
 bool isFunc, tmpBool;
 void treeTraverse(TreeNode *tree, SymbolTable st) {
 	int depth = st.depth();
+	int typeNum = 0;
 	while(tree != NULL) {
 		if(tree->nodekind == StmtK) {
 			switch(tree->kind.stmt) {
@@ -79,24 +83,45 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 		if(tree->nodekind == ExpK) {
 			switch(tree->kind.exp) {
 				case OpK:
-					
+					if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }
+                    if(tree->child[1] != NULL) { treeTraverse(tree->child[1], st); }
+                    //rightH = tree->child[0]->ctype;
+                    //leftH = tree->child[1]->ctype;
+                    //printf("Const: lhs: %u\n", rightH);
+                    //printf("Const: rhs: %u\n", leftH);
+
+					//verifyOpTypes(tree, st);
 					break;
 
 				case ConstK:
+					//rightH = tree->child[0]->ctype;
+					//leftH = tree->child[1]->ctype;
+				    //printf("Const: lhs: %u\n", rightH);
+				    //printf("Const: rhs: %u\n", leftH);
 					break;
 
 				case CallK:
+                    ptr = (TreeNode *)st.lookup(tree->attr.name);
+                    if(ptr == NULL) {
+                        errors(tree, 2, ptr);
+						numErrors++;
+                    }
+					if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }
 					break;
 
 				case AssignK:
+					if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }
+                    if(tree->child[1] != NULL) { treeTraverse(tree->child[1], st); }
 					break;
 
 				case IdK:
+					if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }
 					// check its type, make sure it matches its decl
 					// if it is undefined, set it to undefined type
 					ptr = (TreeNode *)st.lookup(tree->attr.name);
 					if(ptr == NULL) {
 						errors(tree, 2, ptr);
+						numErrors++;
 					}
 					break;
 			}
@@ -108,6 +133,7 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 					if((st.insert(tree->attr.name, tree)) == false) {
 						ptr = (TreeNode *)st.lookup(tree->attr.name);
 						errors(tree, 1, ptr);
+						numErrors++;
 					}
 					break;
 
@@ -115,14 +141,13 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 					isFunc = true;
                     if((st.insert(tree->attr.name, tree)) == false) {
                         ptr = (TreeNode *)st.lookup(tree->attr.name);
-                        errors(tree, 1, ptr);
+                        errors(tree, 1, ptr);	
+						numErrors++;
                     }
 	
 					st.enter(tree->attr.name);
 					if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }	
 					if(tree->child[1] != NULL) { treeTraverse(tree->child[1], st); }	
-					
-					// check for return stuff here?
 
 					st.leave();
 					isFunc = false;
@@ -132,13 +157,14 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 					if((st.insert(tree->attr.name, tree)) == false) {
 						ptr = (TreeNode *)st.lookup(tree->attr.name);
 						errors(tree, 1, ptr);
+						numErrors++;
 					}
 					break;
 			}
 		}
 		tree = tree->sibling;
 	}
-	printSymTab(st);
+	//printSymTab(st);
 }
 
 void printSymTab(SymbolTable st) {
@@ -153,21 +179,46 @@ void scopeAndType(TreeNode *tree) {
 	if(ptr == NULL) { errors(tree, 100, ptr); }
 }
 
+// ExpType order -> Void, Integer, Boolean, Character, Error, Undefined
+void verifyOpTypes(TreeNode *tree, SymbolTable st) {
+	printf("Verifying...\n");
+	printf("lhs: %u\n", rightH);
+	printf("rhs: %u\n", leftH);
+	if(strcmp(tree->attr.name, ">")) {
+		if(tree->child[0]->type != 1 || tree->child[1]->type != 1) {
+			// 2 different types: 3
+			if(tree->child[0]->type != tree->child[1]->type) {
+				printf("Child 0: %d\n", tree->child[0]->type);	
+				printf("Child 1: %d\n", tree->child[1]->type);	
+
+			}
+			// lhs wrong type: 4
+			// rhs wrong type: 5
+			// lhs is array and rhs is not or vice versa: 5
+			// op does not work with arrays: 7
+			// op only works with arrays: 8
+			// unaryop requires type x but was given type y: 9
+			
+		}
+	}
+}
+
+
 void errors(TreeNode *tree, int errorCode, TreeNode *ptr) {
 	//DECLARATIONS
 	if(errorCode == 1 ) { printf("ERROR(%d): Symbol '%s' is already defined at line %d.\n", tree->lineNum, tree->attr.name, ptr->lineNum); }
 	if(errorCode == 2 ) { printf("ERROR(%d): Symbol '%s' is not defined.\n", tree->lineNum, tree->attr.name); }
 
-/*
 	//EXPRESSIONS
-	printf("ERROR(%d): '%s' requires operands of the same type but lhs is type %s and rhs is %s.\n", lineNum);
-	printf("ERROR(%d): '%s' requires operands of type %s but lhs is of type %s.\n", lineNum);
-	printf("ERROR(%d): '%s' requires operands of type %s but rhs is of type %s.\n", lineNum);
-	printf("ERROR(%d): '%s' requires that if one operand is an array so must the other operand.\n", lineNum);
-	printf("ERROR(%d): The operation '%s' does not work with arrays.\n", lineNum);
-	printf("ERROR(%d): The operation '%s' only works with arrays.\n", lineNum);
-	printf("ERROR(%d): Unary '%s' requires an operand of type %s but was given %s.\n", lineNum);
+	//if(errorCode == 3) { printf("ERROR(%d): '%s' requires operands of the same type but lhs is type %s and rhs is %s.\n", tree->lineNum, tree->attr.name, );
+//	if(errorCode == 4) { printf("ERROR(%d): '%s' requires operands of type %s but lhs is of type %s.\n", lineNum);
+//	if(errorCode == 5) { printf("ERROR(%d): '%s' requires operands of type %s but rhs is of type %s.\n", lineNum);
+//	if(errorCode == 6) { printf("ERROR(%d): '%s' requires that if one operand is an array so must the other operand.\n", lineNum);
+//	if(errorCode == 7) { printf("ERROR(%d): The operation '%s' does not work with arrays.\n", lineNum);
+//	if(errorCode == 8) { printf("ERROR(%d): The operation '%s' only works with arrays.\n", lineNum);
+//	if(errorCode == 9) { printf("ERROR(%d): Unary '%s' requires an operand of type %s but was given %s.\n", lineNum);
 
+/*
 	//TEST CONDITIONS
 	printf("ERROR(%d): Cannot use array as test condition in %s statement.\n", lineNum);
 	printf("ERROR(%d): Expecting Boolean test condition in %s statement but got type %s.\n", lineNum);
