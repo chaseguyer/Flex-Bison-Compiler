@@ -10,47 +10,81 @@ void pointerPrintStr(void *data) {
     printf("%s ", (char*)(data));
 }
 
-TreeNode *ptr, *lhs, *rhs;
-int childIndex = 0;
+TreeNode *ptr, *lptr, *rptr;
 
-int leftH;
-int rightH;
+bool isComp = false, isWarning = false;
 
-bool isFunc, tmpBool;
+void scopeAndType(TreeNode *&tree) {
+	addIORoutines(tree);
+	SymbolTable st;
+    treeTraverse(tree, st);
+
+    ptr = (TreeNode *)st.lookupGlobal("main");
+    if(ptr == NULL) { errors(tree, 100, ptr); }
+}
+
+void addIORoutines(TreeNode *&tree) {
+    string routineName[7] = { "output", "outputb", "outputc", "input", "inputb", "inputc", "outnl"};
+    ExpType retType[7] = {Void, Void, Void, Integer, Boolean, Character, Void};
+    ExpType paramType[7] = {Integer, Boolean, Character, Void, Void, Void, Void};
+
+	TreeNode *array[7]; 
+
+    // add the IO routines with dummy nodes
+    for(int i = 0; i < 7; i++) {
+        TreeNode *t = newDeclNode(FunK, -1);
+	    if(paramType[i] != Void) {
+            t->child[0] = newDeclNode(ParamK, -1);
+            t->child[0]->attr.name = strdup("*dummy*");
+            t->child[0]->type = paramType[i];
+        } else {
+            t->child[0] = NULL;
+        }
+        t->child[1] = NULL;
+        t->attr.name = strdup(routineName[i].c_str());
+        t->type = retType[i];
+        t->lineNum = -1;
+
+		array[i] = t;
+  }
+
+	for(int i = 0; i < 6; i++) { 
+		array[i]->sibling = array[i+1]; 
+	}
+	array[6]->sibling = tree;
+	tree = array[0];
+}
+
 void treeTraverse(TreeNode *tree, SymbolTable st) {
+	bool newScope = false;
 	int depth = st.depth();
-	int typeNum = 0;
 	while(tree != NULL) {
 		if(tree->nodekind == StmtK) {
 			switch(tree->kind.stmt) {
 				case IfK:
-					if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }
-					if(tree->child[1] != NULL) { treeTraverse(tree->child[1], st); }
-					if(tree->child[2] != NULL) { treeTraverse(tree->child[2], st); }
+					// check for boolean test
+					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
 					break;
 	
 				case WhileK:
-                    if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }
-                    if(tree->child[1] != NULL) { treeTraverse(tree->child[1], st); }
+					// check for boolean test
+					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
 					break;
 
 				case ForeachK:
-                    if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }
-                    if(tree->child[1] != NULL) { treeTraverse(tree->child[1], st); }
-                    if(tree->child[2] != NULL) { treeTraverse(tree->child[2], st); }
-					break;	
+					// should check that the types match the description in the c-Grammar semantics section.  
+					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
+                  	break;	
 		
 				case CompK:
-					if(isFunc == false) { 
-						st.enter("Comp"); 
-					} else if(isFunc == true) {
-						tmpBool = isFunc;
-						isFunc = false;
+					if(!isComp) { 
+						st.enter("comp"); 
+						newScope = true;
 					}
-					if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }
-					if(tree->child[1] != NULL) { treeTraverse(tree->child[1], st); }
-			
-					if(tmpBool == false) { st.leave(); }
+					isComp = false;
+	
+					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
+				
 					break;
 				
 				case ReturnK:
@@ -83,84 +117,75 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 		if(tree->nodekind == ExpK) {
 			switch(tree->kind.exp) {
 				case OpK:
-					if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }
-                    if(tree->child[1] != NULL) { treeTraverse(tree->child[1], st); }
-                    //rightH = tree->child[0]->ctype;
-                    //leftH = tree->child[1]->ctype;
-                    //printf("Const: lhs: %u\n", rightH);
-                    //printf("Const: rhs: %u\n", leftH);
 
-					//verifyOpTypes(tree, st);
+					tree = setOpType(tree);
+					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
+					verifyOpTypes(tree, st, tree->child[0], tree->child[1]);
 					break;
 
 				case ConstK:
-					//rightH = tree->child[0]->ctype;
-					//leftH = tree->child[1]->ctype;
-				    //printf("Const: lhs: %u\n", rightH);
-				    //printf("Const: rhs: %u\n", leftH);
 					break;
 
 				case CallK:
-                    ptr = (TreeNode *)st.lookup(tree->attr.name);
-                    if(ptr == NULL) {
-                        errors(tree, 2, ptr);
-						numErrors++;
-                    }
-					if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }
+	                if(depth > 1) {
+						ptr = (TreeNode *)st.lookup(tree->attr.name);
+						if(ptr == NULL) {
+						    errors(tree, 2, ptr);
+						}
+					} else if(depth == 1) {
+						ptr = (TreeNode *)st.lookupGlobal(tree->attr.name);
+						if(ptr == NULL) {
+						    errors(tree, 2, ptr);
+						}
+					}
+					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
 					break;
 
 				case AssignK:
-					if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }
-                    if(tree->child[1] != NULL) { treeTraverse(tree->child[1], st); }
+					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
 					break;
 
 				case IdK:
-					if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }
 					// check its type, make sure it matches its decl
 					// if it is undefined, set it to undefined type
-					ptr = (TreeNode *)st.lookup(tree->attr.name);
-					if(ptr == NULL) {
-						errors(tree, 2, ptr);
-						numErrors++;
+	                ptr = (TreeNode *)st.lookup(tree->attr.name);
+                    if(ptr == NULL) {
+                        errors(tree, 2, ptr);
+                    } else {
+						tree->type = ptr->type;
 					}
+					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
 					break;
 			}
 		} 
 
 		if(tree->nodekind == DeclK) {
 			switch(tree->kind.decl) {
+				case ParamK:
 				case VarK:
+					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
 					if((st.insert(tree->attr.name, tree)) == false) {
 						ptr = (TreeNode *)st.lookup(tree->attr.name);
 						errors(tree, 1, ptr);
-						numErrors++;
 					}
 					break;
 
 				case FunK:
-					isFunc = true;
                     if((st.insert(tree->attr.name, tree)) == false) {
                         ptr = (TreeNode *)st.lookup(tree->attr.name);
-                        errors(tree, 1, ptr);	
-						numErrors++;
+                        errors(tree, 1, ptr);
                     }
-	
 					st.enter(tree->attr.name);
-					if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }	
-					if(tree->child[1] != NULL) { treeTraverse(tree->child[1], st); }	
+					isComp = true;
+					newScope = true;
 
-					st.leave();
-					isFunc = false;
-					break;
-
-				case ParamK:
-					if((st.insert(tree->attr.name, tree)) == false) {
-						ptr = (TreeNode *)st.lookup(tree->attr.name);
-						errors(tree, 1, ptr);
-						numErrors++;
-					}
+					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
 					break;
 			}
+		}
+		if(newScope) {
+			st.leave();
+			newScope = false;
 		}
 		tree = tree->sibling;
 	}
@@ -171,49 +196,119 @@ void printSymTab(SymbolTable st) {
 	st.print(pointerPrintStr);
 }
 
-void scopeAndType(TreeNode *tree) {
-	SymbolTable st;
-	treeTraverse(tree, st);
+TreeNode* setTypeString(TreeNode *tree) {
+	if(tree->type == 0) {
+		tree->attr.typeStr = strdup("void");
+		return tree;
+	}
+	if(tree->type == 1) {
+		tree->attr.typeStr = strdup("int");
+        return tree;
+    }
+	if(tree->type == 2) {
+		tree->attr.typeStr = strdup("bool");
+        return tree;
+    }
+	if(tree->type == 3) {
+		tree->attr.typeStr = strdup("char");
+        return tree;
+    }
+	if(tree->type == 4) {
+		tree->attr.typeStr = strdup("string");
+        return tree;
+    }
+	if(tree->type == 5) {
+		tree->attr.typeStr = strdup("error");
+        return tree;
+    }
+	if(tree->type == 6) {
+		tree->attr.typeStr = strdup("undefined");
+        return tree;
+    }
+	return tree;
+}
 
-	ptr = (TreeNode *)st.lookupGlobal("main");
-	if(ptr == NULL) { errors(tree, 100, ptr); }
+TreeNode* setOpType(TreeNode* t) {
+	string op[] = {">", "<", "+", "|", "==", "!=", "=", "++", "--"};
+	// the void is for '=' which returns type of lhs
+	ExpType opRetType[] = {Boolean, Boolean, Integer, Boolean, Boolean, Boolean, Void, Integer, Integer};
+	if(strcmp(tree->attr.name, ">") == 0)
+
+	return t;
 }
 
 // ExpType order -> Void, Integer, Boolean, Character, Error, Undefined
-void verifyOpTypes(TreeNode *tree, SymbolTable st) {
-	printf("Verifying...\n");
-	printf("lhs: %u\n", rightH);
-	printf("rhs: %u\n", leftH);
-	if(strcmp(tree->attr.name, ">")) {
-		if(tree->child[0]->type != 1 || tree->child[1]->type != 1) {
-			// 2 different types: 3
-			if(tree->child[0]->type != tree->child[1]->type) {
-				printf("Child 0: %d\n", tree->child[0]->type);	
-				printf("Child 1: %d\n", tree->child[1]->type);	
+void verifyOpTypes(TreeNode *tree, SymbolTable st, TreeNode *lhs, TreeNode *rhs) {
+/*
+	   '>' takes Integers and returns a Boolean.
+        + takes Integers and returns an Integer.
+        | takes Booleans and returns a Boolean.
+        The operators == and !=, take arguments that are of the same type (both Boolean or both
+            Integer) and return a Boolean.
+        = take arguments that are of the same type and returns the type of the lhs. This means
+            if there is an undefined operand, the lhs operand even if undefined is the type of
+            the assignment. This is because assignment is an expression and can be used in
+            cascaded assignment like: a = b = c = 314159265
+        ++ and -- takes in Integer and returns and Integer. It is not like in C or C++.
+*/
 
+	printf("LHS:%s     OP:%s     RHS:%s\n", lhs->attr.name, tree->attr.name, rhs->attr.name);
+	printf("   :%u       :%u        :%u\n\n", lhs->type, tree->type, rhs->type);
+
+
+	/*
+	if(strcmp(tree->attr.name, ">") == 0) {
+		if(lhs != 1 || rhs != 1 * and not error type *) {
+
+			
+			// 2 different types: 3
+			if(lhs != 1 && rhs != 1) {
+				errors(tree, 3, ptr);
+			
+				// set error type
 			}
+
 			// lhs wrong type: 4
+			else if(lhs != 1 && rhs == 1) {
+				errors(tree, 4, ptr);
+			} 
+
 			// rhs wrong type: 5
+			else if(lhs == 1 && rhs != 1) {
+				errors(tree, 5, ptr);
+			}
+
 			// lhs is array and rhs is not or vice versa: 5
+			else if((tree->child[0]->isArray == 1 && tree->child[1]->isArray == 0) || (tree->child[0]->isArray == 0 && tree->child[1]->isArray == 1)) {
+				errors(tree, 6, ptr);
+			}
+			
 			// op does not work with arrays: 7
 			// op only works with arrays: 8
 			// unaryop requires type x but was given type y: 9
 			
 		}
 	}
+	*/
 }
 
 
-void errors(TreeNode *tree, int errorCode, TreeNode *ptr) {
+void errors(TreeNode *tree, int errorCode, TreeNode *p) {
+	if(!isWarning) {
+		numErrors++;
+	} else {
+		numWarnings++;
+		isWarning = false;
+	}
 	//DECLARATIONS
-	if(errorCode == 1 ) { printf("ERROR(%d): Symbol '%s' is already defined at line %d.\n", tree->lineNum, tree->attr.name, ptr->lineNum); }
+	if(errorCode == 1 ) { printf("ERROR(%d): Symbol '%s' is already defined at line %d.\n", tree->lineNum, tree->attr.name, p->lineNum); }
 	if(errorCode == 2 ) { printf("ERROR(%d): Symbol '%s' is not defined.\n", tree->lineNum, tree->attr.name); }
 
 	//EXPRESSIONS
-	//if(errorCode == 3) { printf("ERROR(%d): '%s' requires operands of the same type but lhs is type %s and rhs is %s.\n", tree->lineNum, tree->attr.name, );
-//	if(errorCode == 4) { printf("ERROR(%d): '%s' requires operands of type %s but lhs is of type %s.\n", lineNum);
-//	if(errorCode == 5) { printf("ERROR(%d): '%s' requires operands of type %s but rhs is of type %s.\n", lineNum);
-//	if(errorCode == 6) { printf("ERROR(%d): '%s' requires that if one operand is an array so must the other operand.\n", lineNum);
+	if(errorCode == 3) { printf("ERROR(%d): '%s' requires operands of the same type but lhs is type %s and rhs is %s.\n", tree->lineNum, tree->attr.name, tree->child[0]->attr.typeStr, tree->child[1]->attr.typeStr); }
+	if(errorCode == 4) { printf("ERROR(%d): '%s' requires operands of type %s but lhs is of type %s.\n", tree->lineNum, tree->attr.name, "int", tree->child[0]->attr.typeStr); }
+	if(errorCode == 5) { printf("ERROR(%d): '%s' requires operands of type %s but rhs is of type %s.\n", tree->lineNum, tree->attr.name, "int", tree->child[1]->attr.typeStr); }
+	if(errorCode == 6) { printf("ERROR(%d): '%s' requires that if one operand is an array so must the other operand.\n", tree->lineNum, tree->attr.name); }
 //	if(errorCode == 7) { printf("ERROR(%d): The operation '%s' does not work with arrays.\n", lineNum);
 //	if(errorCode == 8) { printf("ERROR(%d): The operation '%s' only works with arrays.\n", lineNum);
 //	if(errorCode == 9) { printf("ERROR(%d): Unary '%s' requires an operand of type %s but was given %s.\n", lineNum);

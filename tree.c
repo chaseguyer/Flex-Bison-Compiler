@@ -72,10 +72,8 @@ static void printSpacing(TreeNode *t, int sCount, int indentIndex) {
 		printf("|Sibling: %d  ", sCount);
 }
 
+// Things to type: calls, const, id, ops, assign, 
 void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool TYPE) {
-	if(TYPE == 1) {
-	}
-	TYPE = 0;
 	if(firstRun != 1) {INDENT;}
 	firstRun = 0;
 	while(tree != NULL) {
@@ -111,18 +109,25 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool T
 					printf("Op: %s ", tree -> attr.name);
 					break; 	
 				case ConstK:
-					if(tree -> ctype == numconst)
-						printf("Const: %d ", tree -> attr.value); 
-					else if(tree -> ctype == charconst)
+					if(tree -> type == Integer) {
+						printf("Const: %d ", tree -> attr.value);
+						if(TYPE) printf("Type: int "); 
+					} else if(tree -> type == Character) {
 						printf("Const: \'%c\' ", tree -> attr.cvalue); 
-					else if(tree -> ctype == boolconst) {
-						if(tree -> attr.value == 1) 
+						if(TYPE) printf("Type: char "); 
+					} else if(tree -> type == Boolean) {
+						if(tree -> attr.value == 1) {
 							printf("Const: true ");
-						else if(tree -> attr.value == 0) 
+							if(TYPE) printf("Type: bool "); 
+						} else if(tree -> attr.value == 0) {
 							printf("Const: false ");
+							if(TYPE) printf("Type: bool "); 
+						}
 					}
-					else if(tree -> ctype == stringconst)
+					else if(tree -> type == String) {
 						printf("Const: \"%s\" ", tree -> attr.string);
+						if(TYPE) printf("Type: string "); 
+					}
 					break; 
 				case IdK:
 					printf("Id: %s ", tree -> attr.name);
@@ -142,13 +147,13 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool T
 					if(tree -> isArray == 1)
 						printf("is array ");
 					printf("of type ");
-					if(tree -> type == 0) 
+					if(tree -> type == Void) 
 						printf("void ");
-					else if(tree -> type == 1) 
+					else if(tree -> type == Integer) 
 						printf("int ");
-					else if(tree -> type == 2) 
+					else if(tree -> type == Boolean) 
 						printf("bool ");
-					else if(tree -> type == 3) 
+					else if(tree -> type == Character) 
 						printf("char ");
 					break;
 				case FunK:

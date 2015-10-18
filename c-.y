@@ -135,7 +135,7 @@ var_declaration			: type_specifier var_decl_list SEMICOLON {
 							if(t != NULL) {
 								do {
 									t -> type = (ExpType)$1;
-									t -> ctype = (ConstType)$1;
+									//t -> ctype = (ConstType)$1;
 									t = t -> sibling;
 								} while(t != NULL);
 					
@@ -150,7 +150,7 @@ scoped_var_declaration	: scoped_type_specifier var_decl_list SEMICOLON {
 							if(t != NULL) {
 								do {
 									t -> type = (ExpType)$1 -> type;
-									t -> ctype = (ConstType)$1 -> ctype;
+									//t -> ctype = (ConstType)$1 -> ctype;
 									t -> isStatic = $1 -> isStatic;
 									t -> arrayLen = $1 -> arrayLen;
 									t = t -> sibling;
@@ -258,7 +258,7 @@ param_type_list			: type_specifier param_id_list {
 							if(t != NULL) {
 								do {
 									t -> type = (ExpType)$1;
-									t -> ctype = (ConstType)$1;
+									//t -> ctype = (ConstType)$1;
 									t = t -> sibling;
 								} while(t != NULL);
 								
@@ -608,7 +608,7 @@ factor					: immutable { $$ = $1; }
 
 mutable					: ID {
 							$$ = newExpNode(IdK, yylineno);
-							$$ -> attr.name = $1;	
+							$$ -> attr.name = $1;
 						}
 						| ID LBRACK expression RBRACK {
 							$$ = newExpNode(IdK, yylineno);
@@ -659,22 +659,22 @@ arg_list				: arg_list COMMA expression {
 constant				: NUMCONST {
 							$$ = newExpNode(ConstK, yylineno);
 							$$ -> attr.value = $1;
-							$$ -> ctype = numconst;
+							$$ -> type = Integer;
 						}
 						| CHARCONST {
 							$$ = newExpNode(ConstK, yylineno);
 							$$ -> attr.cvalue = $1;
-							$$ -> ctype = charconst;
+							$$ -> type = Character;
 						}
 						| STRINGCONST {
 							$$ = newExpNode(ConstK, yylineno);
 							$$ -> attr.string = $1;
-							$$ -> ctype = stringconst;
+							$$ -> type = String;
 						}
 						| BOOLCONST {
 							$$ = newExpNode(ConstK, yylineno);
 							$$ -> attr.value = $1;
-							$$ -> ctype = boolconst;
+							$$ -> type = Boolean;
 						}
 						;
 %%

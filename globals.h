@@ -3,14 +3,18 @@
 
 #include<stdio.h>
 #include<stdlib.h>
+#include<string.h>
+#include<iostream>
+
+using namespace std;
 
 typedef enum {StmtK, ExpK, DeclK} NodeKind;
 typedef enum {FunK, VarK, ParamK} DeclKind;
 typedef enum {IfK, WhileK, ForeachK, CompK, ReturnK, BreakK} StmtKind;
 typedef enum {OpK, ConstK, IdK, CallK, AssignK} ExpKind;
 typedef enum {EqK, LesseqK, LessK, GrtK, GrteqK, NoteqK, PlusK, MinusK, StarK, FwdslashK, ModK, QuesK} OpKind;
-typedef enum {Void, Integer, Boolean, Character, Error, Undefined} ExpType;
-typedef enum {numconst, charconst, stringconst, boolconst} ConstType;
+typedef enum {Void, Integer, Boolean, Character, String, Error, Undefined} ExpType;
+//typedef enum {numconst, charconst, stringconst, boolconst} ConstType;
 
 #define MAXCHILDREN 3
 typedef struct treeNode {
@@ -32,11 +36,12 @@ typedef struct treeNode {
 		OpKind op;				// type of token 
 		int value;				// used when an int const or bool
 		unsigned char cvalue;	// used when char
-		char *string;			// used when string const
+		char *typeStr;			
+		char *string;
 		char *name;				// used when IdK
 	} attr;
 	ExpType type;				// used when ExpK for type checking
-	ConstType ctype;
+//	ConstType ctype;
 	bool isStatic;				// is statically allocated?
 	bool isArray;				// is this an array
 	int arrayLen;				// length of array

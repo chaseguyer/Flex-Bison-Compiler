@@ -1,6 +1,6 @@
 BIN  = c-
 CC	 = g++
-SRCS = $(BIN).y $(BIN).l
+SRCS = $(BIN).y $(BIN).l struct.h globals.h tree.h tree.c symTab.cpp symTab.h semantic.c semantic.h
 OBJS = lex.yy.o $(BIN).tab.o
 LIBS = -lm
 
@@ -30,4 +30,4 @@ pdf:	cminus.y cminus.l makefile
 	rm *.tex
 
 tar:
-	tar -cvf $(BIN).tar $(SRCS) struct.h globals.h tree.h tree.c symTab.cpp symTab.h makefile  
+	tar -cvf $(BIN).tar $(SRCS) makefile  

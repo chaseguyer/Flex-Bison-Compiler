@@ -90,6 +90,20 @@ void * SymbolTable::lookupGlobal(string sym) {
 	return data;
 }
 
+void * SymbolTable::lookupDepth(string sym, int depth) {
+	int count = 0;
+	void *data;
+	for(vector<Scope *>::iterator it = stack.begin(); it != stack.end(); it++) {
+		if(count == depth-1) {
+			data = stack[count]->lookup(sym);
+		}
+		count++;
+	}
+
+	//data = stack[depth]->lookup(sym);
+	return data;
+}
+
 bool SymbolTable::insert(string sym, void *ptr) {
 	return (stack.back())->insert(sym, ptr);
 }
