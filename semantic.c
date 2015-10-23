@@ -4,29 +4,39 @@
 #include"semantic.h"
 #include"symTab.h"
 
-using namespace std;
+/*	*	*	*	*	*/
+
+// Symbol Table Print Functions
 
 void pointerPrintStr(void *data) {
     printf("%s ", (char*)(data));
 }
+void printSymTab(SymbolTable st) {
+	st.print(pointerPrintStr);
+}
 
-TreeNode *ptr, *lptr, *rptr;
+/*	*	*	*	*	*/
 
-bool isComp = false, isWarning = false;
+TreeNode *ptr;
+bool isComp = false, isWarning = false, isSet = false, isLoop = false, isReturn = false;
+char* funcName;
+int paramNum = 0;
 
+// Specifies scopes, types tree members, handles errors
 void scopeAndType(TreeNode *&tree) {
 	addIORoutines(tree);
 	SymbolTable st;
     treeTraverse(tree, st);
 
     ptr = (TreeNode *)st.lookupGlobal("main");
-    if(ptr == NULL) { errors(tree, 100, ptr); }
+    if(ptr == NULL) { errors(tree, 37, ptr); }
 }
 
+// Adds IO routine names into tree to reserve the names
 void addIORoutines(TreeNode *&tree) {
-    string routineName[7] = { "output", "outputb", "outputc", "input", "inputb", "inputc", "outnl"};
-    ExpType retType[7] = {Void, Void, Void, Integer, Boolean, Character, Void};
-    ExpType paramType[7] = {Integer, Boolean, Character, Void, Void, Void, Void};
+    string routineName[7] = { "input", "output", "inputb", "outputb", "inputc", "outputc", "outnl"};
+    ExpType retType[7] = {Integer, Void, Boolean, Void, Character, Void, Void};
+    ExpType paramType[7] = {Void, Integer, Void, Boolean, Void, Character, Void};
 
 	TreeNode *array[7]; 
 
@@ -46,7 +56,7 @@ void addIORoutines(TreeNode *&tree) {
         t->lineNum = -1;
 
 		array[i] = t;
-  }
+	}
 
 	for(int i = 0; i < 6; i++) { 
 		array[i]->sibling = array[i+1]; 
@@ -55,25 +65,97 @@ void addIORoutines(TreeNode *&tree) {
 	tree = array[0];
 }
 
+/*	*	*	*	*
+
+TODO
+
+Returning void
+
+ops that dont work with arrays
+
+cannot use func as a simple var
+
+array should be indexed bt x but got y
+
+= requires operands of same type
+
+error line no's (errloc)
+
+
+*	*	*	*	*/
+
+TreeNode *funcParams, *callParams;
+
+// Recursively called function that handles all siblings and their children
 void treeTraverse(TreeNode *tree, SymbolTable st) {
 	bool newScope = false;
 	int depth = st.depth();
+	TreeNode *func, *tmp; 
+	int fCount = 0, pCount = 0; // for counting number of parameters
+	bool fNull = false, cNull = false; 
 	while(tree != NULL) {
+		tree->isSimple = false;
+
+		/*** STATEMENT KIND ***/
 		if(tree->nodekind == StmtK) {
 			switch(tree->kind.stmt) {
 				case IfK:
 					// check for boolean test
 					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
+					tree->attr.name = strdup("if");
+                    if(tree->child[0] != NULL) {
+                        // if(errorCode == 11) { printf("ERROR(%d): Expecting Boolean test condition in %s statement but got type %s.\n", tree->lineNum, "if", "char"); }
+                        if(tree->child[0]->type != Boolean) {
+                            errors(tree, 11, tree->child[0]);
+                        }
+                        // if(errorCode == 10) { printf("ERROR(%d): Cannot use array as test condition in %s statement.\n", tree->lineNum, "if"); }
+                        if(tree->child[0]->isArray == true) {
+                            errors(tree, 10, tree->child[0]);
+                        }
+                    }
 					break;
 	
 				case WhileK:
 					// check for boolean test
+					isLoop = true;
 					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
+					tree->attr.name = strdup("while");
+					if(tree->child[0] != NULL) {
+						// if(errorCode == 11) { printf("ERROR(%d): Expecting Boolean test condition in %s statement but got type %s.\n", tree->lineNum, "if", "char"); }
+						if(tree->child[0]->type != Boolean) {
+							errors(tree, 11, tree->child[0]);
+						}
+						// if(errorCode == 10) { printf("ERROR(%d): Cannot use array as test condition in %s statement.\n", tree->lineNum, "if"); }
+						if(tree->child[0]->isArray == true) {
+							errors(tree, 10, tree->child[0]);
+						}
+					}
+					isLoop = false;
 					break;
 
 				case ForeachK:
-					// should check that the types match the description in the c-Grammar semantics section.  
+					isLoop = true;
 					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
+					// lhs cannot be an array of any type but int (29)
+					if(tree->child[0]->isArray == true) {
+						if(tree->child[0]->type != Integer) {
+							errors(tree, 29, ptr);
+						}
+						errors(tree, 31, ptr);
+					}
+
+					// rhs of IN can either be an INT or an INT or BOOL array (30)
+					if(tree->child[1]->isArray == false) {
+						if(tree->child[1]->type != Integer && tree->child[1]->type != Undefined) {
+							errors(tree, 30, ptr);
+						}
+					} else if(tree->child[1]->isArray == true) {
+						// types must be the same: bool IN bool | int IN int (28)
+						if(tree->child[0]->type != tree->child[1]->type) {
+							errors(tree, 28, ptr);
+						}	
+					}
+					isLoop = false;
                   	break;	
 		
 				case CompK:
@@ -88,23 +170,38 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 					break;
 				
 				case ReturnK:
-					// If the func type is int, bool, or char, and there is no return type,
-					// print a warning message with the lineno of the func declaration
-					//tree->child[0]->attr.type == parent's type
-					
-					if(tree->child[0] != NULL) { treeTraverse(tree->child[0], st); }
-					
-					// no arrays returned
+					isReturn = true;
+					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
+					func = (TreeNode *)st.lookup(funcName);
+				
+					// expecting return type x but has no return val: 15  
+					if(tree->child[0] == NULL && func->type != Void) { // no return val
+		                errors(tree, 15, func);	
+					}
+
 					if(tree->child[0] != NULL) {
-						if(tree->child[0]->isArray == 1) {
-							ptr = (TreeNode *)st.lookup(tree->attr.name);
-							errors(tree, 12, ptr);
-						}
+						TreeNode *child = tree->child[0];
+
+						// no arrays returned: 12
+						if(child->isArray == true)
+							errors(tree, 12, func);
+
+						// expecting no return val but got x: 13
+						if(func->type == Void && child->type != Void) 
+							errors(tree, 13, func);
+
+						// expecting return type x but got y: 14
+						//if(child->nodekind == ExpK && child->kind.exp == CallK) {
+							
+						//} else 
+						if(func->type != child->type && child->type != Undefined)
+							errors(tree, 14, func);	
 					}
 					break;
 			
-				case BreakK:	
-					// make sure I am in a foreach or while!!
+				case BreakK:
+					if(isLoop == false) 
+						errors(tree, 17, ptr); 
 					break;
 
 				default:
@@ -113,61 +210,205 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 			}
 		}
 
-		// check to make sure they have the proper type		
+		/*** EXPRESSION KIND ***/
 		if(tree->nodekind == ExpK) {
 			switch(tree->kind.exp) {
 				case OpK:
-
-					tree = setOpType(tree);
+				case AssignK:
+					ExpType expectLHS, expectRHS;
+					isSet = true;
+					tree = getOpTypes(expectLHS, expectRHS, tree);
+					isSet = false;
 					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
-					verifyOpTypes(tree, st, tree->child[0], tree->child[1]);
+					verifyOpTypes(tree, st);
 					break;
 
 				case ConstK:
 					break;
 
 				case CallK:
-	                if(depth > 1) {
+					ptr = (TreeNode *)st.lookup(tree->attr.name);
+					if(ptr == NULL) {
+					    errors(tree, 2, ptr);
+						for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
+					} else { // with ptr being parent function...
+						for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
 						ptr = (TreeNode *)st.lookup(tree->attr.name);
-						if(ptr == NULL) {
-						    errors(tree, 2, ptr);
+						tree->type = ptr->type;
+
+						/*
+						// if(errorCode == 18) { printf("ERROR(%d): '%s' is a simple variable and cannot be called.\n", tree->lineNum, p->attr.name); }
+						if(ptr->nodekind == DeclK && tree->kind.exp == VarK) {
+							errors(tree, 18, ptr);
 						}
-					} else if(depth == 1) {
-						ptr = (TreeNode *)st.lookupGlobal(tree->attr.name);
-						if(ptr == NULL) {
-						    errors(tree, 2, ptr);
+						*/
+
+						// assign func and call parameters and reinitialize flags
+						if(ptr->child[0] != NULL) {
+							funcParams = ptr->child[0];
+							fNull = false;
+							//fCount = 0;
+							fCount = 1;
+						} else {
+							funcParams = NULL;
+						}
+						if(tree->child[0] != NULL) { 
+							callParams = tree->child[0];
+							cNull = false;
+							//pCount = 0;
+							pCount = 1;
+						} else {
+							callParams = NULL;	
+						}
+						if(funcParams != NULL) {
+							while(funcParams != NULL) {
+								//fCount++;
+								if(callParams != NULL) {
+									//pCount++;
+									//if(errorCode == 23) { printf("ERROR(%d): Expecting type %s in parameter %i of call to '%s' defined on line %d but got %s.\n", tree->lineNum); }
+									if(funcParams->type != callParams->type) {
+										paramNum = pCount;
+										errors(tree, 23, ptr);
+									}
+									//if(errorCode == 24) { printf("ERROR(%d): Expecting array in parameter %i of call to '%s' defined on line %d.\n", tree->lineNum); }
+									if(funcParams->isArray == true && callParams->isArray == false) {
+										paramNum = pCount;
+										errors(tree, 24, ptr);
+									//if(errorCode == 25) { printf("ERROR(%d): Not expecting array in parameter %i of call to '%s' defined on line %d.\n", tree->lineNum); }
+									} else if(funcParams->isArray == false && callParams->isArray == true) {
+										paramNum = pCount;
+										errors(tree, 25, ptr);
+									}
+									
+									// Now for next is NULL check
+									if(callParams->sibling != NULL) {
+										callParams = callParams->sibling;
+										pCount++;
+									} else {
+										cNull = true;
+									}
+									if(funcParams->sibling != NULL) {
+										funcParams = funcParams->sibling;
+										fCount++;
+									} else {
+										fNull = true;
+										break;
+									}
+								} else {cNull = true; }	
+								if(fNull != cNull) {
+									//if(fNull == true && cNull == false) {
+									if(fCount < pCount) {
+										//if(errorCode == 27) { printf("ERROR(%d): Too many parameters passed for function '%s' defined on line %d.\n", tree->lineNum); }
+										errors(tree, 27, ptr);
+										break;
+									//} else if(fNull == false && cNull == true) {
+									} else if(fCount > pCount) {
+										//if(errorCode == 26) { printf("ERROR(%d): Too few parameters passed for function '%s' defined on line %d.\n", tree->lineNum); }
+										errors(tree, 26, ptr);
+										break;
+									}
+								}
+							}
+						} else if(callParams != NULL) { 
+							//if(errorCode == 27) { printf("ERROR(%d): Too many parameters passed for function '%s' defined on line %d.\n", tree->lineNum); }
+							errors(tree, 27, ptr);
 						}
 					}
-					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
-					break;
-
-				case AssignK:
-					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
 					break;
 
 				case IdK:
 					// check its type, make sure it matches its decl
 					// if it is undefined, set it to undefined type
 	                ptr = (TreeNode *)st.lookup(tree->attr.name);
-                    if(ptr == NULL) {
+                    if(ptr == NULL) { // original decl
                         errors(tree, 2, ptr);
-                    } else {
+						tree->type = Undefined;
+						for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
+					} else {
 						tree->type = ptr->type;
+						tree->isArray = ptr->isArray;
+						for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
+
+						
+
+						// 22: Cannot index nonarray '%s'.\n (x[496]; or *x; when x is not declared) 
+						if(tree->isArray == false) { // Id isnt an array
+							if(tree->child[0] != NULL) { // but is being indexed
+								errors(tree, 22, ptr);
+							}						
+						}
+						if(tree->isArray == true) {
+							if(tree->child[0] != NULL) { // Id has children
+								if(tree->child[0]->attr.name != NULL) { // child has an Id itself
+									// 20: Array index is the unindexed array '%s'.\n (aa[aa])
+									if(tree->attr.name == tree->child[0]->attr.name) { // this cannot be correct...
+										errors(tree, 20, ptr);
+									}
+								}
+								else if(tree->child[0]->attr.name == NULL) { // is a const
+									// 21: Array '%s' should be indexed by type int but got %s.\n (array init as in x but given y type)
+									if(tree->child[0]->type != Integer) {
+										errors(tree, 21, tree->child[0]);
+									}
+								} else {
+									tree->isIndexed = true;
+									//tree->isArray = false;
+								}
+							}	
+						}
 					}
-					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
 					break;
 			}
 		} 
 
+		/*** DECLARATION KIND ***/
 		if(tree->nodekind == DeclK) {
 			switch(tree->kind.decl) {
-				case ParamK:
-				case VarK:
+				case ParamK: 
+				case VarK: 
 					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
 					if((st.insert(tree->attr.name, tree)) == false) {
 						ptr = (TreeNode *)st.lookup(tree->attr.name);
 						errors(tree, 1, ptr);
 					}
+
+					if(tree->child[0] != NULL) { // decl is being init w/ expression
+						if(tree->isArray == true) {
+							if(tree->type != tree->child[0]->type) {
+								// 33: Initializer for array variable '%s' must be a string, but is of nonarray type %s.\n
+								if(tree->type == Character && tree->child[0]->type != String) {
+									errors(tree, 33, tree->child[0]); 
+								}
+								// 32: Array '%s' must be of type char to be initialized, but is of type %s.\n
+								else if(tree->type != Character && tree->child[0]->type == String) {
+									errors(tree, 32, tree->child[0]);	
+								}
+								// For array char[]:string case
+								else if(tree->type == Character && tree->child[0]->type == String) {	// cheap fix to a harder problem?
+								}
+								// 35: Initializer for variable '%s' is not a constant expression.\n
+								else if(tree->child[0]->attr.name != NULL) {
+									errors(tree, 35, tree->child[0]);
+								}
+							} else {
+								tree->isIndexed = true;
+								//tree->isArray = false;
+							}
+						}
+						else if(tree->isArray == false) {
+							// 34: Initializer for nonarray variable '%s' of type %s cannot be initialized with an array.\n
+							if(tree->child[0]->isArray == true) {
+								errors(tree, 34, tree->child[0]);
+							}
+							// 36: Variable '%s' is of type %s but is being initialized with an expression of type %s.\n
+							if(tree->type != tree->child[0]->type) {
+								errors(tree, 36, tree->child[0]); 
+							}
+						}
+					}		
+						
+					// 35: Initializer for variable '%s' is not a constant expression.\n
+					//if(tree->child[0]->type ) {}
 					break;
 
 				case FunK:
@@ -175,11 +416,19 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
                         ptr = (TreeNode *)st.lookup(tree->attr.name);
                         errors(tree, 1, ptr);
                     }
+
+					funcName = tree->attr.name; // for checking return value
 					st.enter(tree->attr.name);
 					isComp = true;
 					newScope = true;
 
 					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
+					if(isReturn == false && tree->lineNum != -1 && tree->type != Void) {
+						isWarning = true;
+						errors(tree, 16, ptr);
+					} else {
+						isReturn = false;
+					}	
 					break;
 			}
 		}
@@ -192,107 +441,174 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 	//printSymTab(st);
 }
 
-void printSymTab(SymbolTable st) {
-	st.print(pointerPrintStr);
-}
+// 1. Gets the expected types of op children.  2. Sets the type of operator to expected type 
+TreeNode* getOpTypes(ExpType &expectLHS, ExpType &expectRHS, TreeNode *tree) {
+	std::string opName(tree->attr.name);
 
-TreeNode* setTypeString(TreeNode *tree) {
-	if(tree->type == 0) {
-		tree->attr.typeStr = strdup("void");
-		return tree;
+	// BINARY OPS
+	if(tree->child[1] != NULL) {
+		if(opName == "+" || opName == "-" || opName == "*" || opName == "/" || opName == "%" || opName == "+=" || opName == "-=" || opName == "*=" || opName == "/=") {
+			expectLHS = Integer;
+			expectRHS = Integer;
+			if(isSet) { tree->type = Integer; }
+			return tree;
+		}
+		if(opName == "==" || opName == "!=") {
+			expectLHS = Undefined;
+			expectRHS = Undefined;
+			if(isSet) { tree->type = Boolean; }
+		}
+		if(opName == ">" || opName == "<" || opName == ">=" || opName == "<=") {
+			expectLHS = CharOrInt;
+			expectRHS = CharOrInt;
+			if(isSet) { tree->type = Boolean; }
+			return tree;
+		}
+		if(opName == "|" || opName == "&") {
+			expectLHS = Boolean;
+			expectRHS = Boolean;
+			if(isSet) { tree->type = Boolean; }
+			return tree;
+		}
+		if(opName == "=") {
+			expectLHS = Undefined;
+			expectRHS = Undefined;
+			if(isSet) { tree->type = expectLHS; }
+			return tree;
+		}
 	}
-	if(tree->type == 1) {
-		tree->attr.typeStr = strdup("int");
-        return tree;
-    }
-	if(tree->type == 2) {
-		tree->attr.typeStr = strdup("bool");
-        return tree;
-    }
-	if(tree->type == 3) {
-		tree->attr.typeStr = strdup("char");
-        return tree;
-    }
-	if(tree->type == 4) {
-		tree->attr.typeStr = strdup("string");
-        return tree;
-    }
-	if(tree->type == 5) {
-		tree->attr.typeStr = strdup("error");
-        return tree;
-    }
-	if(tree->type == 6) {
-		tree->attr.typeStr = strdup("undefined");
-        return tree;
-    }
+
+	// UNARY OPS
+	else if(tree->child[1] == NULL) {
+	    if(opName == "?" || opName == "-" || opName == "++" || opName == "--") {
+	        tree->isUnary = true;
+			expectLHS = Integer;
+			if(isSet) { tree->type = Integer; }
+			return tree;
+	    }
+	    if(opName == "*") {
+	        tree->isUnary = true;
+			expectLHS = Undefined;
+			if(isSet) { tree->type = Integer; }
+			return tree;
+	    }
+		if(opName == "!") {
+			tree->isUnary = true;
+			expectLHS = Boolean;
+			if(isSet) { tree->type = Boolean; }
+			return tree;
+		}
+	}
 	return tree;
 }
 
-TreeNode* setOpType(TreeNode* t) {
-	string op[] = {">", "<", "+", "|", "==", "!=", "=", "++", "--"};
-	// the void is for '=' which returns type of lhs
-	ExpType opRetType[] = {Boolean, Boolean, Integer, Boolean, Boolean, Boolean, Void, Integer, Integer};
-	if(strcmp(tree->attr.name, ">") == 0)
+// Compares given types to expected types and reports errors if there are any 
+void verifyOpTypes(TreeNode *tree, SymbolTable st) {
+	TreeNode *tmp, *error;
+	ExpType expectLHS, expectRHS, tmpType;
+	tree = getOpTypes(expectLHS, expectRHS, tree);
 
-	return t;
-}
+	// BINARY EXPRESSIONS
+	if(tree->isUnary != true) {
+		TreeNode *lptr = tree->child[0];
+		TreeNode *rptr = tree->child[1];
+	
+		ExpType lhs = lptr->type;
+		ExpType rhs = rptr->type;
 
-// ExpType order -> Void, Integer, Boolean, Character, Error, Undefined
-void verifyOpTypes(TreeNode *tree, SymbolTable st, TreeNode *lhs, TreeNode *rhs) {
-/*
-	   '>' takes Integers and returns a Boolean.
-        + takes Integers and returns an Integer.
-        | takes Booleans and returns a Boolean.
-        The operators == and !=, take arguments that are of the same type (both Boolean or both
-            Integer) and return a Boolean.
-        = take arguments that are of the same type and returns the type of the lhs. This means
-            if there is an undefined operand, the lhs operand even if undefined is the type of
-            the assignment. This is because assignment is an expression and can be used in
-            cascaded assignment like: a = b = c = 314159265
-        ++ and -- takes in Integer and returns and Integer. It is not like in C or C++.
-*/
-
-	printf("LHS:%s     OP:%s     RHS:%s\n", lhs->attr.name, tree->attr.name, rhs->attr.name);
-	printf("   :%u       :%u        :%u\n\n", lhs->type, tree->type, rhs->type);
-
-
-	/*
-	if(strcmp(tree->attr.name, ">") == 0) {
-		if(lhs != 1 || rhs != 1 * and not error type *) {
-
-			
-			// 2 different types: 3
-			if(lhs != 1 && rhs != 1) {
-				errors(tree, 3, ptr);
-			
-				// set error type
+		/*
+			// Quick check to make sure we are not using a function as a simple variable	
+			if(lptr->attr.name != NULL) {
+				ptr = (TreeNode*)st.lookup(lptr->attr.name);
+				if(ptr != NULL) {
+					// if(errorCode == 19) { printf("ERROR(%d): Cannot use function '%s' as a simple variable.\n", tree->lineNum, p->attr.name); }
+					if(ptr->nodekind == DeclK && tree->kind.exp == FunK) {
+						errors(tree, 19, ptr);
+					}
+				}
 			}
 
-			// lhs wrong type: 4
-			else if(lhs != 1 && rhs == 1) {
-				errors(tree, 4, ptr);
-			} 
+            if(rptr->attr.name != NULL) {
+                ptr = (TreeNode*)st.lookup(rptr->attr.name);
+                if(ptr != NULL) {
+					// if(errorCode == 19) { printf("ERROR(%d): Cannot use function '%s' as a simple variable.\n", tree->lineNum, p->attr.name); }
+                    if(ptr->nodekind == DeclK && tree->kind.exp == FunK) {
+                        errors(tree, 19, ptr);
+                    }
+                }
+            }
+		*/
 
-			// rhs wrong type: 5
-			else if(lhs == 1 && rhs != 1) {
-				errors(tree, 5, ptr);
+		// Let's deal with just the =, !=, and ==
+		if(expectLHS == Undefined && expectRHS == Undefined) {
+			// binary ops that deal with arrays: =, !=, ==
+			// lhs is array and rhs is not or vice versa: 6
+			if(strcmp(tree->attr.name, "=") == 0) {
+				tree->type = lhs;
+				if(((lptr->isArray == true && rptr->isArray == false) || (lptr->isArray == false && rptr->isArray == true ))) {
+					errors(tree, 6, ptr); 
+				}
 			}
-
-			// lhs is array and rhs is not or vice versa: 5
-			else if((tree->child[0]->isArray == 1 && tree->child[1]->isArray == 0) || (tree->child[0]->isArray == 0 && tree->child[1]->isArray == 1)) {
-				errors(tree, 6, ptr);
+			if(lhs != rhs) {
+				if(lhs == Character && rhs == String) {// cheap fix to a harder problem?
+				}
+				else if(lhs != Undefined && rhs != Undefined) 
+					errors(tree, 3, ptr);
 			}
-			
-			// op does not work with arrays: 7
-			// op only works with arrays: 8
-			// unaryop requires type x but was given type y: 9
-			
+		} else { // to handle >, <, >=, and <=
+			if(expectLHS == CharOrInt) {
+                if(lhs != rhs && (lhs != Undefined && rhs != Undefined)) {
+                    errors(tree, 3, ptr);
+                } 
+				if(lhs != Character && lhs != Integer && (lhs != Undefined && rhs != Undefined)) {
+					tmpType = tree->type;
+					tree->type = CharOrInt;
+					errors(tree, 4, ptr);
+					tree->type = tmpType;
+				}
+				if(rhs != Character && rhs != Integer && (lhs != Undefined && rhs != Undefined)) {
+					tmpType = tree->type;
+					tree->type = CharOrInt;
+					errors(tree, 5, ptr);
+					tree->type = tmpType;
+				}
+			}
+			else { // to handle everything else
+				if(lhs != expectLHS && lhs != Undefined) { 
+					errors(tree, 4, ptr);
+				}
+				if(rhs != expectRHS && rhs != Undefined) {
+					errors(tree, 5, ptr);
+				}
+			}
 		}
 	}
-	*/
+
+	// UNARY EXPRESSIONS
+	if(tree->isUnary == true) {
+		TreeNode *lptr = tree->child[0];
+		ExpType lhs = lptr->type;
+
+		if(strcmp(tree->attr.name, "*") == 0) {
+			// for op isArray == false and yet it uses *: 8
+			if(lptr->isArray == false) {
+				errors(tree, 8, ptr);
+			}
+	
+		} else {
+            // expects %s but is getting %s: 9
+            if(expectLHS != lhs) {
+                errors(tree, 9, ptr);
+            }
+			// 7: The operation '%s' does not work with arrays.\n
+			if(lptr->isArray == true) {
+				errors(tree, 7, ptr);
+			}
+		}
+	}
 }
 
-
+// Error messages who are sent their corresponding error code to print
 void errors(TreeNode *tree, int errorCode, TreeNode *p) {
 	if(!isWarning) {
 		numErrors++;
@@ -305,61 +621,57 @@ void errors(TreeNode *tree, int errorCode, TreeNode *p) {
 	if(errorCode == 2 ) { printf("ERROR(%d): Symbol '%s' is not defined.\n", tree->lineNum, tree->attr.name); }
 
 	//EXPRESSIONS
-	if(errorCode == 3) { printf("ERROR(%d): '%s' requires operands of the same type but lhs is type %s and rhs is %s.\n", tree->lineNum, tree->attr.name, tree->child[0]->attr.typeStr, tree->child[1]->attr.typeStr); }
-	if(errorCode == 4) { printf("ERROR(%d): '%s' requires operands of type %s but lhs is of type %s.\n", tree->lineNum, tree->attr.name, "int", tree->child[0]->attr.typeStr); }
-	if(errorCode == 5) { printf("ERROR(%d): '%s' requires operands of type %s but rhs is of type %s.\n", tree->lineNum, tree->attr.name, "int", tree->child[1]->attr.typeStr); }
+	if(errorCode == 3) { printf("ERROR(%d): '%s' requires operands of the same type but lhs is type %s and rhs is %s.\n", tree->lineNum, tree->attr.name, getType(tree->child[0]), getType(tree->child[1])); }
+	if(errorCode == 4) { printf("ERROR(%d): '%s' requires operands of type %s but lhs is of type %s.\n", tree->lineNum, tree->attr.name, getType(tree), getType(tree->child[0])); }
+	if(errorCode == 5) { printf("ERROR(%d): '%s' requires operands of type %s but rhs is of type %s.\n", tree->lineNum, tree->attr.name, getType(tree), getType(tree->child[1])); }
 	if(errorCode == 6) { printf("ERROR(%d): '%s' requires that if one operand is an array so must the other operand.\n", tree->lineNum, tree->attr.name); }
-//	if(errorCode == 7) { printf("ERROR(%d): The operation '%s' does not work with arrays.\n", lineNum);
-//	if(errorCode == 8) { printf("ERROR(%d): The operation '%s' only works with arrays.\n", lineNum);
-//	if(errorCode == 9) { printf("ERROR(%d): Unary '%s' requires an operand of type %s but was given %s.\n", lineNum);
+	if(errorCode == 7) { printf("ERROR(%d): The operation '%s' does not work with arrays.\n", tree->lineNum, tree->attr.name); }
+	if(errorCode == 8) { printf("ERROR(%d): The operation '%s' only works with arrays.\n", tree->lineNum, tree->attr.name); }
+	if(errorCode == 9) { printf("ERROR(%d): Unary '%s' requires an operand of type %s but was given %s.\n", tree->lineNum, tree->attr.name, getType(tree), getType(tree->child[0])); }
 
-/*
 	//TEST CONDITIONS
-	printf("ERROR(%d): Cannot use array as test condition in %s statement.\n", lineNum);
-	printf("ERROR(%d): Expecting Boolean test condition in %s statement but got type %s.\n", lineNum);
-*/
+	if(errorCode == 10) { printf("ERROR(%d): Cannot use array as test condition in %s statement.\n", tree->lineNum, tree->attr.name); }
+	if(errorCode == 11) { printf("ERROR(%d): Expecting Boolean test condition in %s statement but got type %s.\n", tree->lineNum, tree->attr.name, getType(p)); }
 
-	//RETURN
+	//RETURN - remember that p is the original function while tree is the return
 	if(errorCode == 12) { printf("ERROR(%d): Cannot return an array.\n", tree->lineNum); }
-//	printf("ERROR(%d): Function '%s' at line %d is expecting no return value, but return has return value.\n", lineNum);
-//	printf("ERROR(%d): Function '%s' at line %d is expecting to return type %s but got %s.\n", lineNum);
-//	printf("ERROR(%d): Function '%s' at line %d is expecting to return type %s but return has no return value.\n", lineNum);
-//	printf("WARNING(%d): Expecting to return type %s but function '%s' has no return statement.\n", lineNum);
+	if(errorCode == 13) { printf("ERROR(%d): Function '%s' at line %d is expecting no return value, but return has return value.\n", tree->lineNum, p->attr.name, p->lineNum); }
+	if(errorCode == 14) { printf("ERROR(%d): Function '%s' at line %d is expecting to return type %s but got %s.\n", tree->lineNum, p->attr.name, p->lineNum, getType(p), getType(tree->child[0])); }
+	if(errorCode == 15) { printf("ERROR(%d): Function '%s' at line %d is expecting to return type %s but return has no return value.\n", tree->lineNum, p->attr.name, p->lineNum, getType(p)); }
+	if(errorCode == 16) { printf("WARNING(%d): Expecting to return type %s but function '%s' has no return statement.\n", tree->lineNum, getType(tree), tree->attr.name); }
 
-/*
 	//BREAK
-	printf("ERROR(%d): Cannot have a break statement outside of loop.\n", lineNum);
+	if(errorCode == 17) { printf("ERROR(%d): Cannot have a break statement outside of loop.\n", tree->lineNum); }
 	
 	//FUNCTION INVOCATION
-	printf("ERROR(%d): '%s' is a simple variable and cannot be called.\n", lineNum);
-	printf("ERROR(%d): Cannot use function '%s' as a simple variable.\n", lineNum);
+	if(errorCode == 18) { printf("ERROR(%d): '%s' is a simple variable and cannot be called.\n", tree->lineNum, p->attr.name); }
+	if(errorCode == 19) { printf("ERROR(%d): Cannot use function '%s' as a simple variable.\n", tree->lineNum, p->attr.name); }
 
 	//ARRAY INDEXING
-	printf("ERROR(%d): Array index is the unindexed array '%s'.\n", lineNum);
-	printf("ERROR(%d): Array '%s' should be indexed by type int but got %s.\n", lineNum);
-	printf("ERROR(%d): Cannot index nonarray '%s'.\n", lineNum);
+    if(errorCode == 20) { printf("ERROR(%d): Array index is the unindexed array '%s'.\n", tree->lineNum, p->attr.name); }
+    if(errorCode == 21) { printf("ERROR(%d): Array '%s' should be indexed by type int but got %s.\n", tree->lineNum, tree->attr.name, getType(p)); }
+    if(errorCode == 22) { printf("ERROR(%d): Cannot index nonarray '%s'.\n", tree->lineNum, tree->attr.name); }
 
 	//PARAMETER LIST
-	printf("ERROR(%d): Expecting type %s in parameter %i of call to '%s' defined on line %d but got %s.\n", lineNum);
-	printf("ERROR(%d): Expecting array in parameter %i of call to '%s' defined on line %d.\n", lineNum);
-	printf("ERROR(%d): Not expecting array in parameter %i of call to '%s' defined on line %d.\n", lineNum);
-	printf("ERROR(%d): Too few parameters passed for function '%s' defined on line %d.\n", lineNum);
-	printf("ERROR(%d): Too many parameters passed for function '%s' defined on line %d.\n", lineNum);
+	if(errorCode == 23) { printf("ERROR(%d): Expecting type %s in parameter %i of call to '%s' defined on line %d but got %s.\n", tree->lineNum, getType(funcParams), paramNum, p->attr.name, p->lineNum, getType(callParams)); }
+	if(errorCode == 24) { printf("ERROR(%d): Expecting array in parameter %i of call to '%s' defined on line %d.\n", tree->lineNum, paramNum, p->attr.name, p->lineNum); }
+	if(errorCode == 25) { printf("ERROR(%d): Not expecting array in parameter %i of call to '%s' defined on line %d.\n", tree->lineNum, paramNum, p->attr.name, p->lineNum); }
+	if(errorCode == 26) { printf("ERROR(%d): Too few parameters passed for function '%s' defined on line %d.\n", tree->lineNum, tree->attr.name, p->lineNum); }
+	if(errorCode == 27) { printf("ERROR(%d): Too many parameters passed for function '%s' defined on line %d.\n", tree->lineNum, tree->attr.name, p->lineNum); }
 
 	//FOREACH
-	printf("ERROR(%d): Foreach requires operands of 'in' be the same type but lhs is type %s and rhs array is type %s.\n", lineNum);
-	printf("ERROR(%d): If not an array, foreach requires lhs of 'in' be of type int but it is type %s.\n", lineNum);
-	printf("ERROR(%d): If not an array, foreach requires rhs of 'in' be of type int but it is type %s.\n", lineNum);
-	printf("ERROR(%d): In foreach statement the variable to the left of 'in' must not be an array.\n", lineNum);
+	if(errorCode == 28) { printf("ERROR(%d): Foreach requires operands of 'in' be the same type but lhs is type %s and rhs array is type %s.\n", tree->lineNum, getType(tree->child[0]), getType(tree->child[1])); }
+	if(errorCode == 29) { printf("ERROR(%d): If not an array, foreach requires lhs of 'in' be of type int but it is type %s.\n", tree->lineNum, getType(tree->child[0])); }
+	if(errorCode == 30) { printf("ERROR(%d): If not an array, foreach requires rhs of 'in' be of type int but it is type %s.\n", tree->lineNum, getType(tree->child[1])); }
+	if(errorCode == 31) { printf("ERROR(%d): In foreach statement the variable to the left of 'in' must not be an array.\n", tree->lineNum); }
 
 	//INITIALIZERS
-	printf("ERROR(%d): Array '%s' must be of type char to be initialized, but is of type %s.\n", lineNum);
-	printf("ERROR(%d): Initializer for array variable '%s' must be a string, but is of nonarray type %s.\n", lineNum);
-	printf("ERROR(%d): Initializer for nonarray variable '%s' of type %s cannot be initialized with an array.\n", lineNum);
-	printf("ERROR(%d): Initializer for variable '%s' is not a constant expression.\n", lineNum);
-	printf("ERROR(%d): Variable '%s' is of type %s but is being initialized with an expression of type %s.\n", lineNum);
-*/
+	if(errorCode == 32) { printf("ERROR(%d): Array '%s' must be of type char to be initialized, but is of type %s.\n", tree->lineNum, tree->attr.name, getType(tree)); }
+	if(errorCode == 33) { printf("ERROR(%d): Initializer for array variable '%s' must be a string, but is of nonarray type %s.\n", tree->lineNum, tree->attr.name, getType(p)); }
+	if(errorCode == 34) { printf("ERROR(%d): Initializer for nonarray variable '%s' of type %s cannot be initialized with an array.\n", tree->lineNum, tree->attr.name, getType(tree)); }
+	if(errorCode == 35) { printf("ERROR(%d): Initializer for variable '%s' is not a constant expression.\n", tree->lineNum, tree->attr.name); }
+	if(errorCode == 36) { printf("ERROR(%d): Variable '%s' is of type %s but is being initialized with an expression of type %s.\n", tree->lineNum, tree->attr.name, getType(tree), getType(p)); }
 	
 	//MISC
-	if(errorCode == 100) { printf("ERROR(LINKER): Procedure main is not defined.\n"); }
+	if(errorCode == 37) { printf("ERROR(LINKER): Procedure main is not defined.\n"); }
 }

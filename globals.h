@@ -13,14 +13,13 @@ typedef enum {FunK, VarK, ParamK} DeclKind;
 typedef enum {IfK, WhileK, ForeachK, CompK, ReturnK, BreakK} StmtKind;
 typedef enum {OpK, ConstK, IdK, CallK, AssignK} ExpKind;
 typedef enum {EqK, LesseqK, LessK, GrtK, GrteqK, NoteqK, PlusK, MinusK, StarK, FwdslashK, ModK, QuesK} OpKind;
-typedef enum {Void, Integer, Boolean, Character, String, Error, Undefined} ExpType;
+typedef enum {Void, Integer, Boolean, Character, String, Error, Undefined, CharOrInt} ExpType;
 //typedef enum {numconst, charconst, stringconst, boolconst} ConstType;
 
 #define MAXCHILDREN 3
 typedef struct treeNode {
     struct treeNode *child[MAXCHILDREN];	// children of the node
     struct treeNode *sibling;				// siblings for the node
-	struct treeNode *param;   
  
 	// what kind of node
 	int lineNum;				// linenume relevant to this node
@@ -41,10 +40,12 @@ typedef struct treeNode {
 		char *name;				// used when IdK
 	} attr;
 	ExpType type;				// used when ExpK for type checking
-//	ConstType ctype;
 	bool isStatic;				// is statically allocated?
 	bool isArray;				// is this an array
+	bool isIndexed;				// if this is an array, is it indexed?
+	bool isUnary;				// is this unary
 	int arrayLen;				// length of array
+	bool isSimple;
 } TreeNode;
 
 #endif

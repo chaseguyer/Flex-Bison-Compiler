@@ -7,9 +7,14 @@ void treeTraverse(TreeNode*, SymbolTable);
 void printSymTab(SymbolTable);
 void scopeAndType(TreeNode*&);
 void errors(TreeNode*, int, TreeNode*);
-void verifyOpTypes(TreeNode*, SymbolTable, TreeNode*, TreeNode*);
-TreeNode* setTypeString(TreeNode*);
 void addIORoutines(TreeNode*&);
-TreeNode* setOpTypes(TreeNode*);
+
+// Typing
+void verifyOpTypes(TreeNode*, SymbolTable);
+
+TreeNode* getOpTypes(ExpType&, ExpType&, TreeNode*);
+
+TreeNode* setOpRetType(TreeNode*);
+TreeNode* setOpTakeType(TreeNode*);
 
 #endif

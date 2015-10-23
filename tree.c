@@ -61,6 +61,19 @@ int cCount = 0;
 #define INDENT indentno+=3
 #define UNINDENT indentno-=3
 
+// Used to return a string version of the enum types
+char* getType(TreeNode *tree) {
+    if(tree->type == 0) { return strdup("void"); }
+    if(tree->type == 1) { return strdup("int"); }
+    if(tree->type == 2) { return strdup("bool"); }
+    if(tree->type == 3) { return strdup("char"); }
+    if(tree->type == 4) { return strdup("string"); }
+    if(tree->type == 5) { return strdup("error"); }
+    if(tree->type == 6) { return strdup("undefined type"); }
+    if(tree->type == 7) { return strdup("char or int"); }
+    return strdup("[NO TYPE DETERMINED]");
+}
+
 static void printSpacing(TreeNode *t, int sCount, int indentIndex) { 
 	for(int i = 0; i < (indentno/3); i++) {
 		printf("|   ");
@@ -107,6 +120,7 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool T
 			switch(tree -> kind.exp) {
 				case OpK:
 					printf("Op: %s ", tree -> attr.name);
+					if(TYPE) printf("Type: %s ", getType(tree));
 					break; 	
 				case ConstK:
 					if(tree -> type == Integer) {
@@ -130,13 +144,16 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool T
 					}
 					break; 
 				case IdK:
-					printf("Id: %s ", tree -> attr.name);
+					printf("Id: %s ", tree->attr.name);
+					if(TYPE) printf("Type: %s ", getType(tree));
 					break;
 				case CallK:
 					printf("Call: %s ", tree -> attr.name);
+					if(TYPE) printf("Type: %s ", getType(tree));
 					break;
 				case AssignK:
 					printf("Assign: %s ", tree -> attr.name);
+					if(TYPE) printf("Type: %s ", getType(tree));
 					break;
 			} 
 		}
@@ -145,8 +162,8 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool T
 				case VarK:
 					printf("Var %s ", tree -> attr.name);
 					if(tree -> isArray == 1)
-						printf("is array ");
-					printf("of type ");
+						printf("is array of ");
+					if(!TYPE) {printf("type ");} // ??
 					if(tree -> type == Void) 
 						printf("void ");
 					else if(tree -> type == Integer) 
@@ -170,8 +187,8 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool T
 				case ParamK:
 					printf("Param %s ", tree -> attr.name);
 					if(tree -> isArray == 1)
-						printf("is array ");
-					printf("of type ");
+						printf("is array of ");
+					if(!TYPE) {printf("type ");} // ??
 					if(tree -> type == 0) 
 						printf("void ");
 					else if(tree -> type == 1) 
