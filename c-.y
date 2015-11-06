@@ -20,7 +20,7 @@ extern FILE *yyin;
 TreeNode *syntaxTree = NULL;
 
 int numWarnings = 0, numErrors = 0;
-void yyerror(const char *msg) {printf("ERROR(PARSER): %s on line %d\n", msg, yylineno); }
+void yyerror(const char *msg); 
 char cconstError(char, char*);
 
 %}
@@ -32,20 +32,19 @@ char cconstError(char, char*);
 	TreeNode *tree;
 }
 
-%token <token.nconst> NUMCONST 
-%token <token.cconst> CHARCONST 
-%token <token.sconst> STRINGCONST 
-%token <token.id> ID 
-%token <token.bconst> BOOLCONST 
-%token <token.input> NOTEQ MULASS INC ADDASS DEC SUBASS DIVASS LESSEQ EQ GRTEQ ERROR
-%token <token.input> BOOL BREAK CHAR ELSE FOREACH IF IN INT RETURN STATIC WHILE
-%token <token.input> SEMICOLON COMMA COLON RBRACK RPEREN RCURL 
-%token <token.input> ASSIGN OR AND BANG LESS GRT PLUS MINUS STAR FWDSLASH MOD QUES
+%token <token> NUMCONST 
+%token <token> CHARCONST 
+%token <token> STRINGCONST 
+%token <token> BOOLCONST 
+%token <token> ID 
+%token <token> NOTEQ MULASS INC ADDASS DEC SUBASS DIVASS LESSEQ EQ GRTEQ ERROR
+%token <token> BOOL BREAK CHAR ELSE FOREACH IF IN INT RETURN STATIC WHILE
+%token <token> SEMICOLON COMMA COLON RBRACK RPEREN RCURL 
+%token <token> ASSIGN OR AND BANG LESS GRT PLUS MINUS STAR FWDSLASH MOD QUES
+%token <token> LBRACK LPEREN LCURL 
 
-%token<token.nconst> LBRACK LPEREN LCURL 
-
-%type<number> type_specifier
-%type <token.input> relop unaryop mulop sumop
+%type <number> type_specifier
+%type <token> relop unaryop mulop sumop
 %type <tree> program
 %type <tree> declaration_list
 %type <tree> declaration
@@ -110,54 +109,56 @@ declaration_list		: declaration_list declaration {
 						| declaration { $$ = $1; }
 						;
 
-declaration				: var_declaration { 
-							$$ = $1;
-						}
-						| fun_declaration { 
-							$$ = $1;
-						}
+declaration				: var_declaration { $$ = $1; }
+						| fun_declaration { $$ = $1; }
+						| error { $$ = NULL; }
 						;
 
-var_declaration			: type_specifier var_decl_list SEMICOLON { 
+var_declaration			: type_specifier var_decl_list SEMICOLON {
+							yyerrok; 
 							TreeNode *t = $2;
 							if(t != NULL) {
 								do {
-									t -> type = (ExpType)$1;
-									t = t -> sibling;
+									t->type = (ExpType)$1;
+									t = t->sibling;
 								} while(t != NULL);
-					
 								$$ = $2;
 							} else
 								$$ = NULL; 
 						}
+						| error SEMICOLON { yyerrok; }
 						;
 
 scoped_var_declaration	: scoped_type_specifier var_decl_list SEMICOLON { 
+							yyerrok;
 							TreeNode *t = $2;
 							if(t != NULL) {
 								do {
-									t -> type = (ExpType)$1 -> type;
-									t -> isStatic = $1 -> isStatic;
-									t -> arrayLen = $1 -> arrayLen;
-									t = t -> sibling;
+									t->type = (ExpType)$1->type;
+									t->isStatic = $1->isStatic;
+									t->arrayLen = $1->arrayLen;
+									t = t->sibling;
 								} while(t != NULL); 
-
 								$$ = $2;
 							} else
 								$$ = NULL; 
 						}
+						| scoped_type_specifier error { $$ = NULL; }
+						| error SEMICOLON { yyerrok; }
 						;
 
 var_decl_list			: var_decl_list COMMA var_decl_initialize { 
 							TreeNode *t = $1;
 							if(t != NULL) {
-								while(t -> sibling != NULL) t = t -> sibling;
-								t -> sibling = $3;
+								while(t->sibling != NULL) t = t->sibling;
+								t->sibling = $3;
 								$$ = $1;
 							} else
 								$$ = $3;
 						} 
 						| var_decl_initialize { $$ = $1; }
+						| error COMMA var_decl_initialize { yyerrok; } 
+						| var_decl_list COMMA error { $$ = NULL; }
 						;
 
 var_decl_initialize		: var_decl_id {
@@ -165,31 +166,33 @@ var_decl_initialize		: var_decl_id {
 						}
 						| var_decl_id COLON simple_expression {
 							$$ = $1;
-							$$ -> child[0] = $3;
+							$$->child[0] = $3;
 						}
 						;
 
 var_decl_id				: ID { 
 							$$ = newDeclNode(VarK, yylineno);
-							$$ -> attr.name = $1;
+							$$->attr.name = $1.id;
+							$$->lineNum = $1.lineNum;
 						}
 						| ID LBRACK NUMCONST RBRACK { 
 							$$ = newDeclNode(VarK, yylineno);
-							$$ -> attr.name = $1;
-							$$ -> isArray = 1;
-							$$ -> arrayLen = $3;
+							$$->attr.name = $1.id;
+							$$->lineNum = $1.lineNum;
+							$$->isArray = 1;
+							$$->arrayLen = $3.nconst;
 						}	
 						;
 
 scoped_type_specifier	: STATIC type_specifier { 
 							$$ = newDeclNode(VarK, yylineno);	
-							$$ -> isStatic = 1;
-							$$ -> type = (ExpType)$2;	
+							$$->isStatic = 1;
+							$$->type = (ExpType)$2;	
 						}
 						| type_specifier {  
 							$$ = newDeclNode(VarK, yylineno);	
-							$$ -> isStatic = 0;
-							$$ -> type = (ExpType)$1;
+							$$->isStatic = 0;
+							$$->type = (ExpType)$1;
 						}
 						;
 
@@ -205,17 +208,19 @@ type_specifier			: INT {
 						;
 
 fun_declaration			: type_specifier ID LPEREN params RPEREN statement {
-							$$ = newDeclNode(FunK, $3);
+							$$ = newDeclNode(FunK, $3.lineNum);
 							$$ -> child[0] = $4;
 							$$ -> child[1] = $6;
-							$$ -> attr.name = $2;
+                            $$->attr.name = $2.id;
+                            $$->lineNum = $2.lineNum;
 							$$ -> type = (ExpType)$1;
 						} 
 						| ID LPEREN params RPEREN statement {
-							$$ = newDeclNode(FunK, $2);
+							$$ = newDeclNode(FunK, $2.lineNum);
 							$$ -> child[0] = $3;	
 							$$ -> child[1] = $5;
-							$$ -> attr.name = $1;
+                            $$->attr.name = $1.id;
+                            $$->lineNum = $1.lineNum;
 						}
 						;
 
@@ -269,11 +274,13 @@ param_id_list			: param_id_list COMMA param_id {
 
 param_id				: ID { 
 							$$ = newDeclNode(ParamK, yylineno);
-							$$ -> attr.name = $1;
+                            $$->attr.name = $1.id;
+                            $$->lineNum = $1.lineNum;
 						} 
 						| ID LBRACK RBRACK { 
 							$$ = newDeclNode(ParamK, yylineno);
-							$$ -> attr.name = $1;
+                            $$->attr.name = $1.id;
+                            $$->lineNum = $1.lineNum;
 							$$ -> isArray = 1;
 						}
 						;
@@ -297,7 +304,7 @@ unmatched				: unmatched_selection_stmt { $$ = $1; }
 						;
 
 compound_stmt			: LCURL local_declarations statement_list RCURL { 
-							$$ = newStmtNode(CompK, $1);
+							$$ = newStmtNode(CompK, $1.lineNum);
 							$$ -> child[0] = $2;
 							$$ -> child[1] = $3;
 						}
@@ -336,8 +343,8 @@ expression_stmt			: expression SEMICOLON {
 						;
 
 matched_selection_stmt	: IF LPEREN simple_expression RPEREN matched ELSE matched {
-							$$ = newStmtNode(IfK, $2);
-							$$ -> attr.name = $1;
+							$$ = newStmtNode(IfK, $1.lineNum);
+							$$ -> attr.name = $1.input;
 							$$ -> child[0] = $3;
 							$$ -> child[1] = $5;
 							$$ -> child[2] = $7;
@@ -345,20 +352,20 @@ matched_selection_stmt	: IF LPEREN simple_expression RPEREN matched ELSE matched
 						;
 
 unmatched_selection_stmt: IF LPEREN simple_expression RPEREN matched {
-							$$ = newStmtNode(IfK, $2);
-							$$ -> attr.name = $1;
+							$$ = newStmtNode(IfK, $1.lineNum);
+							$$ -> attr.name = $1.input;
 							$$ -> child[0] = $3;
 							$$ -> child[1] = $5;
 						}
 						| IF LPEREN simple_expression RPEREN unmatched {
-							$$ = newStmtNode(IfK, $2);
-							$$ -> attr.name = $1;
+							$$ = newStmtNode(IfK, $1.lineNum);
+							$$ -> attr.name = $1.input;
 							$$ -> child[0] = $3;
 							$$ -> child[1] = $5;
 						}
 						| IF LPEREN simple_expression RPEREN matched ELSE unmatched {
-							$$ = newStmtNode(IfK, $2);
-							$$ -> attr.name = $1;
+							$$ = newStmtNode(IfK, $1.lineNum);
+							$$ -> attr.name = $1.input;
 							$$ -> child[0] = $3;
 							$$ -> child[1] = $5;
 							$$ -> child[2] = $7;
@@ -366,8 +373,8 @@ unmatched_selection_stmt: IF LPEREN simple_expression RPEREN matched {
 						;
 
 matched_foreach_stmt	: FOREACH LPEREN mutable IN simple_expression RPEREN matched {
-							$$ = newStmtNode(ForeachK, $2);
-							$$ -> attr.name = $1;
+							$$ = newStmtNode(ForeachK, $1.lineNum);
+							$$ -> attr.name = $1.input;
 							$$ -> child[0] = $3;
 							$$ -> child[1] = $5;
 							$$ -> child[2] = $7;
@@ -375,8 +382,8 @@ matched_foreach_stmt	: FOREACH LPEREN mutable IN simple_expression RPEREN matche
 						;
 
 unmatched_foreach_stmt	: FOREACH LPEREN mutable IN simple_expression RPEREN unmatched {
-							$$ = newStmtNode(ForeachK, $2);
-							$$ -> attr.name = $1;
+							$$ = newStmtNode(ForeachK, $1.lineNum);
+							$$ -> attr.name = $1.input;
 							$$ -> child[0] = $3;
 							$$ -> child[1] = $5;
 							$$ -> child[2] = $7;
@@ -384,8 +391,8 @@ unmatched_foreach_stmt	: FOREACH LPEREN mutable IN simple_expression RPEREN unma
 						;
 
 matched_while_stmt		: WHILE LPEREN simple_expression RPEREN matched {
-							$$ = newStmtNode(WhileK, $2);
-							$$ -> attr.name = $1;
+							$$ = newStmtNode(WhileK, $1.lineNum);
+							$$ -> attr.name = $1.input;
 							$$ -> child[0] = $3;
 							$$ -> child[1] = $5;
 						}
@@ -393,27 +400,27 @@ matched_while_stmt		: WHILE LPEREN simple_expression RPEREN matched {
 						;
 
 unmatched_while_stmt	: WHILE LPEREN simple_expression RPEREN unmatched {
-							$$ = newStmtNode(WhileK, $2);
-							$$ -> attr.name = $1;
+							$$ = newStmtNode(WhileK, $1.lineNum);
+							$$ -> attr.name = $1.input;
 							$$ -> child[0] = $3;
 							$$ -> child[1] = $5;
 						}
 						;
 
 return_stmt				: RETURN SEMICOLON { 
-							$$ = newStmtNode(ReturnK, yylineno);
-							$$ -> attr.name = $1;	
+							$$ = newStmtNode(ReturnK, $1.lineNum);
+							$$ -> attr.name = $1.input;	
 						}
 						| RETURN expression SEMICOLON {
-							$$ = newStmtNode(ReturnK, yylineno);
-							$$ -> attr.name = $1;	
+							$$ = newStmtNode(ReturnK, $1.lineNum);
+							$$ -> attr.name = $1.input;	
 							$$ -> child[0] = $2;	
 						}
 						;
 
 break_stmt				: BREAK SEMICOLON {
-							$$ = newStmtNode(BreakK, yylineno);
-							$$ -> attr.name = $1;	
+							$$ = newStmtNode(BreakK, $1.lineNum);
+							$$ -> attr.name = $1.input;	
 						}
 						;
 
@@ -421,41 +428,48 @@ expression				: mutable ASSIGN expression {
 							$$ = newExpNode(AssignK, yylineno);
 							$$ -> child[0] = $1;
 							$$ -> child[1] = $3;
-							$$ -> attr.name = $2;
+							$$ -> attr.name = $2.input;
+							$$->lineNum = $2.lineNum;
 						}
 						| mutable ADDASS expression {
 							$$ = newExpNode(AssignK, yylineno);
 							$$ -> child[0] = $1;
 							$$ -> child[1] = $3;
-							$$ -> attr.name = $2;
+							$$ -> attr.name = $2.input;
+                            $$->lineNum = $2.lineNum;
 						}
 						| mutable SUBASS expression {
 							$$ = newExpNode(AssignK, yylineno);
 							$$ -> child[0] = $1;
 							$$ -> child[1] = $3;
-							$$ -> attr.name = $2;
+							$$ -> attr.name = $2.input;
+                            $$->lineNum = $2.lineNum;
 						}
 						| mutable MULASS expression {
 							$$ = newExpNode(AssignK, yylineno);
 							$$ -> child[0] = $1;
 							$$ -> child[1] = $3;
-							$$ -> attr.name = $2;
+							$$ -> attr.name = $2.input;
+                            $$->lineNum = $2.lineNum;
 						}
 						| mutable DIVASS expression {
 							$$ = newExpNode(AssignK, yylineno);
 							$$ -> child[0] = $1;
 							$$ -> child[1] = $3;
-							$$ -> attr.name = $2;
+							$$ -> attr.name = $2.input;
+                            $$->lineNum = $2.lineNum;
 						}
 						| mutable INC{
 							$$ = newExpNode(AssignK, yylineno);
 							$$ -> child[0] = $1;
-							$$ -> attr.name = $2;
+							$$ -> attr.name = $2.input;
+                            $$->lineNum = $2.lineNum;
 						}
 						| mutable DEC{
 							$$ = newExpNode(AssignK, yylineno);
 							$$ -> child[0] = $1;
-							$$ -> attr.name = $2;
+							$$ -> attr.name = $2.input;
+                            $$->lineNum = $2.lineNum;
 						}
 						| simple_expression {
 							$$ = $1; 
@@ -466,7 +480,8 @@ simple_expression		: simple_expression OR and_expression {
 							$$ = newExpNode(OpK, yylineno);
 							$$ -> child[0] = $1;
 							$$ -> child[1] = $3;
-							$$ -> attr.name = $2;
+							$$ -> attr.name = $2.input;
+                            $$->lineNum = $2.lineNum;
 						}
 						| and_expression {
 							$$= $1;
@@ -477,7 +492,8 @@ and_expression			: and_expression AND unary_rel_expression {
 							$$ = newExpNode(OpK, yylineno);
 							$$ -> child[0] = $1;
 							$$ -> child[1] = $3;
-							$$ -> attr.name = $2;
+							$$ -> attr.name = $2.input;
+                            $$->lineNum = $2.lineNum;
 						}
 						| unary_rel_expression {
 							$$= $1;
@@ -487,7 +503,8 @@ and_expression			: and_expression AND unary_rel_expression {
 unary_rel_expression	: BANG unary_rel_expression {
 							$$ = newExpNode(OpK, yylineno);
 							$$ -> child[0] = $2;
-							$$ -> attr.name = $1;
+							$$ -> attr.name = $1.input;
+                            $$->lineNum = $1.lineNum;
 						}
 						| rel_expression {
 							$$= $1;
@@ -498,7 +515,8 @@ rel_expression			: sum_expression relop sum_expression {
 							$$ = newExpNode(OpK, yylineno);
 							$$ -> child[0] = $1;
 							$$ -> child[1] = $3;
-							$$ -> attr.name = $2;
+							$$->attr.name = $2.input;
+                            $$->lineNum = $2.lineNum;
 						}
 						| sum_expression { 
 							$$ = $1;
@@ -529,7 +547,8 @@ sum_expression			: sum_expression sumop term {
 							$$ = newExpNode(OpK, yylineno);
 							$$ -> child[0] = $1;
 							$$ -> child[1] = $3;
-							$$ -> attr.name = $2;
+							$$ -> attr.name = $2.input;
+                            $$->lineNum = $2.lineNum;
 						}
 						| term {
 							$$ = $1;
@@ -548,7 +567,8 @@ term					: term mulop unary_expression {
 							$$ = newExpNode(OpK, yylineno);
 							$$ -> child[0] = $1;
 							$$ -> child[1] = $3;
-							$$ -> attr.name = $2;
+							$$ -> attr.name = $2.input;
+                            $$->lineNum = $2.lineNum;
 						}
 						| unary_expression {
 							$$ = $1;
@@ -568,7 +588,8 @@ mulop					: STAR {
 
 unary_expression		: unaryop unary_expression {
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> attr.name = $1;
+							$$ -> attr.name = $1.input;
+                            $$->lineNum = $1.lineNum;
 							$$ -> child[0] = $2;	
 						}
 						| factor {
@@ -593,11 +614,13 @@ factor					: immutable { $$ = $1; }
 
 mutable					: ID {
 							$$ = newExpNode(IdK, yylineno);
-							$$ -> attr.name = $1;
+                            $$->attr.name = $1.id;
+                            $$->lineNum = $1.lineNum;
 						}
 						| ID LBRACK expression RBRACK {
 							$$ = newExpNode(IdK, yylineno);
-							$$ -> attr.name = $1;	
+                            $$->attr.name = $1.id;
+                            $$->lineNum = $1.lineNum;
 							$$ -> child[0] = $3;	
 						}
 						;
@@ -614,8 +637,9 @@ immutable				: LPEREN expression RPEREN {
 						;
 
 call					: ID LPEREN args RPEREN {
-							$$ = newExpNode(CallK, $2); 
-							$$ -> attr.name = $1;
+							$$ = newExpNode(CallK, $2.lineNum);
+                            $$->attr.name = $1.id;
+                            $$->lineNum = $1.lineNum; 
 							$$ -> child[0] = $3;	
 						}
 						;
@@ -643,23 +667,23 @@ arg_list				: arg_list COMMA expression {
 
 constant				: NUMCONST {
 							$$ = newExpNode(ConstK, yylineno);
-							$$ -> attr.value = $1;
-							$$ -> type = Integer;
+							$$->attr.value = $1.nconst;
+							$$->type = Integer;
 						}
 						| CHARCONST {
 							$$ = newExpNode(ConstK, yylineno);
-							$$ -> attr.cvalue = $1;
-							$$ -> type = Character;
+							$$->attr.cvalue = $1.cconst;
+							$$->type = Character;
 						}
 						| STRINGCONST {
 							$$ = newExpNode(ConstK, yylineno);
-							$$ -> attr.string = $1;
-							$$ -> type = String;
+							$$->attr.string = $1.sconst;
+							$$->type = String;
 						}
 						| BOOLCONST {
 							$$ = newExpNode(ConstK, yylineno);
-							$$ -> attr.value = $1;
-							$$ -> type = Boolean;
+							$$->attr.value = $1.bconst;
+							$$->type = Boolean;
 						}
 						;
 %%
@@ -694,6 +718,9 @@ int main(int args, char** argv) {
 	do {	
 		yyparse();
 	} while (!feof(yyin));
+
+	/* Only if there are no errors from the syntax analysis 
+		should you move onto semantic analysis */
 
 	// Bool of last arg is NOTYPE vs TYPE
 	if(pFlag) printTree(stdout, syntaxTree, 0, 0, 0); 

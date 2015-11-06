@@ -14,7 +14,6 @@ typedef enum {IfK, WhileK, ForeachK, CompK, ReturnK, BreakK} StmtKind;
 typedef enum {OpK, ConstK, IdK, CallK, AssignK} ExpKind;
 typedef enum {EqK, LesseqK, LessK, GrtK, GrteqK, NoteqK, PlusK, MinusK, StarK, FwdslashK, ModK, QuesK} OpKind;
 typedef enum {Void, Integer, Boolean, Character, String, Error, Undefined, CharOrInt} ExpType;
-//typedef enum {numconst, charconst, stringconst, boolconst} ConstType;
 
 #define MAXCHILDREN 3
 typedef struct treeNode {
@@ -22,7 +21,7 @@ typedef struct treeNode {
     struct treeNode *sibling;				// siblings for the node
  
 	// what kind of node
-	int lineNum;				// linenume relevant to this node
+	int lineNum;				// linenum relevant to this node
 	NodeKind nodekind;			// type of node
 	union {						// subtype of type
 		DeclKind decl;			// used when DeclK
@@ -35,7 +34,6 @@ typedef struct treeNode {
 		OpKind op;				// type of token 
 		int value;				// used when an int const or bool
 		unsigned char cvalue;	// used when char
-		char *typeStr;			
 		char *string;
 		char *name;				// used when IdK
 	} attr;
@@ -45,7 +43,6 @@ typedef struct treeNode {
 	bool isIndexed;				// if this is an array, is it indexed?
 	bool isUnary;				// is this unary
 	int arrayLen;				// length of array
-	bool isSimple;
 } TreeNode;
 
 #endif

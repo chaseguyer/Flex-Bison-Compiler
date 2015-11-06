@@ -10,11 +10,11 @@ void errors(TreeNode*, int, TreeNode*);
 void addIORoutines(TreeNode*&);
 
 // Typing
+void checkParams(TreeNode*, TreeNode*, TreeNode*, TreeNode*);
 void verifyOpTypes(TreeNode*, SymbolTable);
-
 TreeNode* getOpTypes(ExpType&, ExpType&, TreeNode*);
 
-TreeNode* setOpRetType(TreeNode*);
-TreeNode* setOpTakeType(TreeNode*);
+//TreeNode* setOpRetType(TreeNode*);
+//TreeNode* setOpTakeType(TreeNode*);
 
 #endif

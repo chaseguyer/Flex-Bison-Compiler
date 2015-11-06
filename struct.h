@@ -6,6 +6,7 @@ typedef struct Token{
 	char cconst;
 	int nconst, bconst;
 	int stringLen;
+	int lineNum;
 } Token;
 
 #endif

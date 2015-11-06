@@ -12,11 +12,11 @@ TreeNode * newStmtNode(StmtKind kind, int lineNum) {
     if(t == NULL)
         printf("Out of memory error at line\n");
     else {
-        for(i = 0; i < MAXCHILDREN; i++) t -> child[i] = NULL;
-        t -> sibling = NULL;
-        t -> nodekind = StmtK;
-        t -> kind.stmt = kind;
-        t -> lineNum = lineNum;
+        for(i = 0; i < MAXCHILDREN; i++) t->child[i] = NULL;
+        t->sibling = NULL;
+        t->nodekind = StmtK;
+        t->kind.stmt = kind;
+        t->lineNum = lineNum;
     }
     return t;
 }
@@ -27,12 +27,12 @@ TreeNode * newExpNode(ExpKind kind, int lineNum) {
     if(t == NULL)
         printf("Out of memory error at line\n");
     else {
-        for(i = 0; i < MAXCHILDREN; i++) t -> child[i] = NULL;
-        t -> sibling = NULL;
-        t -> nodekind = ExpK;
-        t -> kind.exp = kind;
-        t -> lineNum = lineNum;
-        t -> type = Void;
+        for(i = 0; i < MAXCHILDREN; i++) t->child[i] = NULL;
+        t->sibling = NULL;
+        t->nodekind = ExpK;
+        t->kind.exp = kind;
+        t->lineNum = lineNum;
+        t->type = Void;
     }
     return t;
 }
@@ -43,12 +43,12 @@ TreeNode * newDeclNode(DeclKind kind, int lineNum) {
     if(t == NULL)
         printf("Out of memory error at line\n");
     else {
-        for(i = 0; i < MAXCHILDREN; i++) t -> child[i] = NULL;
-        t -> sibling = NULL;
-        t -> nodekind = DeclK;
-        t -> kind.decl = kind;
-        t -> lineNum = lineNum;
-        t -> type = Void;
+        for(i = 0; i < MAXCHILDREN; i++) t->child[i] = NULL;
+        t->sibling = NULL;
+        t->nodekind = DeclK;
+        t->kind.decl = kind;
+        t->lineNum = lineNum;
+        t->type = Void;
     }
     return t;
 }
@@ -123,37 +123,52 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool T
 					if(TYPE) printf("Type: %s ", getType(tree));
 					break; 	
 				case ConstK:
-					if(tree -> type == Integer) {
-						printf("Const: %d ", tree -> attr.value);
-						if(TYPE) printf("Type: int "); 
-					} else if(tree -> type == Character) {
-						printf("Const: \'%c\' ", tree -> attr.cvalue); 
-						if(TYPE) printf("Type: char "); 
-					} else if(tree -> type == Boolean) {
-						if(tree -> attr.value == 1) {
-							printf("Const: true ");
-							if(TYPE) printf("Type: bool "); 
-						} else if(tree -> attr.value == 0) {
-							printf("Const: false ");
-							if(TYPE) printf("Type: bool "); 
+					printf("Const: ");
+					if(tree->type == Integer)
+						printf("%d ", tree->attr.value);
+					if(tree->type == Character) {
+						if(tree->isArray == true) {
+							printf("\"%s\" ", tree->attr.string);
+						} else {
+							printf("\'%c\' ", tree->attr.cvalue);
 						}
 					}
-					else if(tree -> type == String) {
-						printf("Const: \"%s\" ", tree -> attr.string);
-						if(TYPE) printf("Type: string "); 
+					if(tree->type == Boolean) {
+						if(tree->attr.value == 1) {
+							printf("true ");
+						} else {
+							printf("false ");
+						}
+					}
+					if(TYPE) {
+						printf("Type: ");
+						if(tree->isArray == true && tree->isIndexed == false) printf("is array of ");
+						printf("%s ", getType(tree));
 					}
 					break; 
 				case IdK:
 					printf("Id: %s ", tree->attr.name);
-					if(TYPE) printf("Type: %s ", getType(tree));
+					if(TYPE) {
+						printf("Type: ");
+						if(tree->isArray == true && tree->isIndexed == false) printf("is array of ");
+						printf("%s ", getType(tree));
+					}
 					break;
 				case CallK:
 					printf("Call: %s ", tree -> attr.name);
-					if(TYPE) printf("Type: %s ", getType(tree));
+					if(TYPE) {
+						printf("Type: ");
+						if(tree->isArray) printf("is array of ");
+						printf("%s ", getType(tree));
+					}
 					break;
 				case AssignK:
 					printf("Assign: %s ", tree -> attr.name);
-					if(TYPE) printf("Type: %s ", getType(tree));
+					if(TYPE) {
+						printf("Type: ");
+						if(tree->isArray) printf("is array of ");
+						printf("%s ", getType(tree));
+					}
 					break;
 			} 
 		}
