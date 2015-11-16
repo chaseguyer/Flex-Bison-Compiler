@@ -5,7 +5,7 @@
 
 void treeTraverse(TreeNode*, SymbolTable);
 void printSymTab(SymbolTable);
-void scopeAndType(TreeNode*&);
+int scopeAndType(TreeNode*&);
 void errors(TreeNode*, int, TreeNode*);
 void addIORoutines(TreeNode*&);
 
@@ -13,8 +13,5 @@ void addIORoutines(TreeNode*&);
 void checkParams(TreeNode*, TreeNode*, TreeNode*, TreeNode*);
 void verifyOpTypes(TreeNode*, SymbolTable);
 TreeNode* getOpTypes(ExpType&, ExpType&, TreeNode*);
-
-//TreeNode* setOpRetType(TreeNode*);
-//TreeNode* setOpTakeType(TreeNode*);
 
 #endif

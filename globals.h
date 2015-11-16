@@ -4,9 +4,6 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
-#include<iostream>
-
-using namespace std;
 
 typedef enum {StmtK, ExpK, DeclK} NodeKind;
 typedef enum {FunK, VarK, ParamK} DeclKind;
@@ -42,7 +39,10 @@ typedef struct treeNode {
 	bool isArray;				// is this an array
 	bool isIndexed;				// if this is an array, is it indexed?
 	bool isUnary;				// is this unary
+	bool isGlobal;				// for determining where we are in memory
 	int arrayLen;				// length of array
+	int offset;					// where we are from the beginning of the frame
+	int size;					// how much memory we take up
 } TreeNode;
 
 #endif

@@ -17,24 +17,34 @@ void printSymTab(SymbolTable st) {
 
 /*	 *	 *	 *	 *	 */
 
-TreeNode *ptr;
-bool isComp = false, isWarning = false, isSet = false, isLoop = false, isReturn = false;
-char* funcName;
-int paramNum = 0;
+TreeNode *ptr, *child;					// handy ptr for various purposes
+bool isComp = false, isWarning = false, isSet = false, isReturn = false; // various flags for error handling
+bool isLoop = false;
+int globalOffset = 0, localOffset = 0;	// used in calculating location in memory
+char* funcName;							// used to pass around a call's original function decl
+int paramNum = 0;						// used when comparing params of call to params of original decl
+int funcSize = 0;
+int compSize = 0;
+int loopDepth = 1;
+
+int offsetTmp = 0;
+bool isFunc = false;
 
 // Specifies scopes, types tree members, handles errors
-void scopeAndType(TreeNode *&tree) {
+int scopeAndType(TreeNode *&tree) {
 	addIORoutines(tree);
 	SymbolTable st;
     treeTraverse(tree, st);
 
     ptr = (TreeNode *)st.lookupGlobal("main");
     if(ptr == NULL) { errors(tree, 37, ptr); }
+
+	return globalOffset;
 }
 
 // Adds IO routine names into tree to reserve the names
 void addIORoutines(TreeNode *&tree) {
-    string routineName[7] = { "input", "output", "inputb", "outputb", "inputc", "outputc", "outnl"};
+    string routineName[7] = {"input", "output", "inputb", "outputb", "inputc", "outputc", "outnl"};
     ExpType retType[7] = {Integer, Void, Boolean, Void, Character, Void, Void};
     ExpType paramType[7] = {Void, Integer, Void, Boolean, Void, Character, Void};
 
@@ -69,10 +79,11 @@ void addIORoutines(TreeNode *&tree) {
 
 // Recursively called function that handles all siblings and their children
 void treeTraverse(TreeNode *tree, SymbolTable st) {
-	bool newScope = false;
-	int depth = st.depth();
-	TreeNode *funcParams, *callParams;
-	TreeNode *func, *tmp; 
+	bool newScope = false;					// bool for checking whether we entered a new scope or not
+	int depth = st.depth(), paramCount = 0; // depth of scope; number of params in a function decl
+	TreeNode *funcParams, *callParams;		// TreeNodes to store values in
+	TreeNode *func, *tmp;					// TreeNodes to store values in
+	int locOff = localOffset;
 	while(tree != NULL) {
 
 		/*** STATEMENT KIND ***/
@@ -95,6 +106,7 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 	
 				case WhileK:
 					isLoop = true;
+					loopDepth = depth;
 					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
 					tree->attr.name = strdup("while");
 					if(tree->child[0] != NULL) {
@@ -107,11 +119,12 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 							errors(tree, 10, tree->child[0]);
 						}
 					}
-					isLoop = false;
+					if(depth<loopDepth) { isLoop = false; loopDepth = 1; }
 					break;
 
 				case ForeachK:
 					isLoop = true;
+					loopDepth = depth;
 					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
 					if(tree->child[1]->isArray == true && tree->child[1]->isIndexed == false) {
 						// 28: Foreach requires operands of 'in' be the same type but lhs is type %s and rhs array is type %s.\n"
@@ -132,17 +145,38 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 					if(tree->child[0]->isArray == true) {
 						errors(tree, 31, ptr);
 					}
-					isLoop = false;
+					if(depth<loopDepth) { isLoop = false; loopDepth = 1; }
                   	break;	
 		
 				case CompK:
-					if(!isComp) { 
-						st.enter("comp"); 
+					if(!isComp) { // NOT a function's comp 
+						st.enter("comp");
 						newScope = true;
-					}
+						localOffset = locOff;
+						if(isFunc) { 
+							offsetTmp = localOffset;
+							//offsetTmp = localOffset; // once i get to the first non-func comp...
+							//printf("offsetTmp being set to %d\n", offsetTmp);
+							isFunc = false;
+						}
+						//localOffset = offsetTmp; // location 0 of new frame
+					} else { isFunc = true; } // IS a function's comp
 					isComp = false;
+					
+
+					tree->size = locOff;
+					child = tree->child[0];
+					while(child != NULL) {
+						if(!child->isStatic) {
+							tree->size -= 1 + child->arrayLen;
+						}
+						child = child->sibling;
+					}
+
 					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
-				
+					//tree->size = localOffset; // localOffset + (funcDecls + funSize)
+					//localOffset = offsetTmp;
+					//printf("tree->size set to: %d\n", tree->size);
 					break;
 				
 				case ReturnK:
@@ -163,7 +197,7 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 							errors(tree, 13, func);
 
 						// no arrays returned: 12
-						if(child->isArray == true)
+						if(child->isArray == true && child->isIndexed == false)
 							errors(tree, 12, func);
 
 						// expecting return type x but got y: 14
@@ -285,9 +319,7 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 									if(tree->child[0]->type != Integer && tree->child[0]->type != Undefined) { // child is a const w/o type int
 										errors(tree, 21, tree->child[0]);
 									} 
-									//else { // child is a const of type int - index me
-										tree->isIndexed = true;
-									//}
+									tree->isIndexed = true;
 								}							
 							} 
 						}
@@ -299,13 +331,25 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 		/*** DECLARATION KIND ***/
 		if(tree->nodekind == DeclK) {
 			switch(tree->kind.decl) {
-				case ParamK: 
+				case ParamK:
+					tree->size = 1;
+					tree->offset = locOff;
+					locOff -= tree->size;
+					localOffset = locOff;
+
 				case VarK: 
 					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
 					if((st.insert(tree->attr.name, tree)) == false) {
 						ptr = (TreeNode *)st.lookup(tree->attr.name);
 						errors(tree, 1, ptr);
 					}
+
+					// Am i global or local?
+					tmp = (TreeNode *)st.lookupGlobal(tree->attr.name);
+					if(tmp != NULL && depth == 1) { tree->isGlobal = true; } 
+					else { tree->isGlobal = false; }
+
+					// semantic checks
 					if(tree->child[0] != NULL) { // decl is being init w/ expression
 						if(tree->isArray == true) { // decl is of type array
 							if(tree->type != tree->child[0]->type) {
@@ -334,20 +378,75 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 							}
 						}
 					}		
+
+					// To calculate size and location in memory for var decl's
+					if(tree->kind.decl == VarK) {
+						tree->size = 1;
+
+						if(tree->isArray == true) { tree->size += tree->arrayLen; }
+						//printf("VarK %s: size %d\n", tree->attr.name, tree->size);
+
+						if(tree->isGlobal) { // are we global?
+							if(tree->isArray == false) { tree->offset = globalOffset; } 
+							else { tree->offset = globalOffset-1; } // arrays start down 1 further
+							globalOffset -= tree->size;
+						} else { // or are we local?
+							if(tree->isStatic == true) { // static goes to global
+								if(tree->isArray == false) { tree->offset = globalOffset; }
+								else { tree->offset = (globalOffset-1); } // arrays start down 1 further
+								globalOffset -= tree->size;
+							} else { // non-static goes to local
+								if(tree->isArray == false) { tree->offset = locOff; }
+								else { tree->offset = (locOff-1); } // arrays start down 1 further
+								locOff -= tree->size;
+							}
+						}
+						localOffset = locOff;
+					}
+					//printf("localOffset is now %d\n", localOffset);
 					break;
 
 				case FunK:
+
+					// For functions, we count params + 2 for func decl
+					// for its compound, we get size of comp + func decl size
+
                     if((st.insert(tree->attr.name, tree)) == false) {
                         ptr = (TreeNode *)st.lookup(tree->attr.name);
                         errors(tree, 1, ptr);
                     }
+				
+					//printf("FunK: %s\n", tree->attr.name);
+
+					tree->isGlobal = true;
+					paramCount = 0;
+
+					if(tree->child[0] != NULL) {
+						tmp = tree->child[0];
+						while(tmp != NULL) {
+							paramCount++;
+							tmp = tmp->sibling;
+						}
+					}
+					tree->size = 0 - (2 + paramCount); // func offset + num of params = func size
+					funcSize = tree->size; // so the comp can know how big the func is
 
 					funcName = tree->attr.name; // for checking return value
 					st.enter(tree->attr.name);
+
+					locOff = 0;  // new scope, new localOffset count
+					tree->offset = locOff; // we start at 0 in local space
+					locOff -= 2; // -2 for the first two spaces the func takes up of local space
+					localOffset = locOff;
+
 					isComp = true;
 					newScope = true;
 
 					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
+
+					//offsetTmp = 0; // reset for the next function
+
+					// 16: Expecting to return type %s but function '%s' has no return statement.\n"
 					if(isReturn == false && tree->lineNum != -1 && tree->type != Void) {
 						isWarning = true;
 						errors(tree, 16, ptr);
@@ -357,6 +456,9 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 					break;
 			}
 		}
+		
+		// No matter what, if we have entered a new scope, by the time we get here, we
+		// want to be leaving this scope since all if the children have been processed
 		if(newScope) {
 			st.leave();
 			newScope = false;
@@ -580,7 +682,7 @@ void errors(TreeNode *tree, int errorCode, TreeNode *p) {
 	if(errorCode == 10) { printf("ERROR(%d): Cannot use array as test condition in %s statement.\n", tree->lineNum, tree->attr.name); }
 	if(errorCode == 11) { printf("ERROR(%d): Expecting Boolean test condition in %s statement but got type %s.\n", tree->lineNum, tree->attr.name, getType(p)); }
 
-	//RETURN - remember that p is the original function while tree is the return
+	//RETURN
 	if(errorCode == 12) { printf("ERROR(%d): Cannot return an array.\n", tree->lineNum); }
 	if(errorCode == 13) { printf("ERROR(%d): Function '%s' at line %d is expecting no return value, but return has return value.\n", tree->lineNum, p->attr.name, p->lineNum); }
 	if(errorCode == 14) { printf("ERROR(%d): Function '%s' at line %d is expecting to return type %s but got %s.\n", tree->lineNum, p->attr.name, p->lineNum, getType(p), getType(tree->child[0])); }

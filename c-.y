@@ -310,7 +310,6 @@ scoped_var_declaration	: scoped_type_specifier var_decl_list ';' {
 								do {
 									t->type = (ExpType)$1->type;
 									t->isStatic = $1->isStatic;
-									t->arrayLen = $1->arrayLen;
 									t = t->sibling;
 								} while(t != NULL); 
 								$$ = $2;
@@ -503,8 +502,8 @@ unmatched				: unmatched_selection_stmt { $$ = $1; }
 compound_stmt			: '{' local_declarations statement_list '}' { 
 							yyerrok;
 							$$ = newStmtNode(CompK, $1.lineNum);
-							$$ -> child[0] = $2;
-							$$ -> child[1] = $3;
+							$$->child[0] = $2;
+							$$->child[1] = $3;
 						}
 						| '{' error statement_list '}' { $$ = NULL; }
 						| '{' local_declarations error '}' { yyerrok; $$ = NULL; }
@@ -513,8 +512,8 @@ compound_stmt			: '{' local_declarations statement_list '}' {
 local_declarations		: local_declarations scoped_var_declaration  {
 							TreeNode *t = $1;
 							if(t != NULL) {
-								while(t -> sibling != NULL) t = t -> sibling;
-								t -> sibling = $2;
+								while(t->sibling != NULL) t = t->sibling;
+								t->sibling = $2;
 								$$ = $1;
 							} else 
 								$$ = $2;
@@ -525,8 +524,8 @@ local_declarations		: local_declarations scoped_var_declaration  {
 statement_list			: statement_list statement {
 							TreeNode *t = $1;
 							if(t != NULL) {
-								while(t -> sibling != NULL) t = t -> sibling;
-								t -> sibling = $2;
+								while(t->sibling != NULL) t = t->sibling;
+								t->sibling = $2;
 								$$ = $1;
 							} else 
 								$$ = $2;
@@ -564,7 +563,6 @@ unmatched_selection_stmt: IF '(' simple_expression ')' matched {
 							$$ -> child[1] = $5;
 						}
 						| IF '(' simple_expression ')' unmatched {
-							// or just ')' statement
 							$$ = newStmtNode(IfK, $1.lineNum);
 							$$ -> attr.name = $1.input;
 							$$ -> child[0] = $3;
@@ -728,24 +726,12 @@ rel_expression			: sum_expression relop sum_expression {
 						| error relop error { $$ = NULL; }
 						;
 
-relop					: LESSEQ {
-							$$ = $1;
-						}
-						| '<' {
-							$$ = $1;
-						}
-						| '>' {
-							$$ = $1;
-						}
-						| GRTEQ {
-							$$ = $1;
-						}
-						| EQ {
-							$$ = $1;
-						}
-						| NOTEQ {
-							$$ = $1;
-						}
+relop					: LESSEQ { $$ = $1; }
+						| '<' { $$ = $1; }
+						| '>' { $$ = $1; }
+						| GRTEQ { $$ = $1; }
+						| EQ { $$ = $1; }
+						| NOTEQ { $$ = $1; }
 						;
 
 sum_expression			: sum_expression sumop term {
@@ -761,12 +747,8 @@ sum_expression			: sum_expression sumop term {
 						| error sumop error { $$ = NULL; }
 						;
 
-sumop					: '+' {
-							$$ = $1;
-						}
-						| '-' {
-							$$ = $1;
-						}
+sumop					: '+' { $$ = $1; }
+						| '-' { $$ = $1; }
 						;
 
 term					: term mulop unary_expression {
@@ -782,15 +764,9 @@ term					: term mulop unary_expression {
 						| error mulop error { $$ = NULL; }
 						;
 
-mulop					: '*' {
-							$$ = $1;
-						}
-						| '/' {
-							$$ = $1;
-						}
-						| '%' {
-							$$ = $1;
-						}
+mulop					: '*' { $$ = $1; }
+						| '/' { $$ = $1; }
+						| '%' { $$ = $1; }
 						;
 
 unary_expression		: unaryop unary_expression {
@@ -799,21 +775,13 @@ unary_expression		: unaryop unary_expression {
                             $$->lineNum = $1.lineNum;
 							$$ -> child[0] = $2;	
 						}
-						| factor {
-							$$ = $1;
-						}
+						| factor { $$ = $1; }
 						| unaryop error { $$ = NULL; }
 						;
 
-unaryop					: '-' {
-							$$ = $1;
-						}
-						| '*' {
-							$$ = $1;
-						}
-						| '?' {
-							$$ = $1;
-						}
+unaryop					: '-' { $$ = $1; }
+						| '*' { $$ = $1; }
+						| '?' { $$ = $1; }
 						;
 
 factor					: immutable { $$ = $1; }
@@ -831,7 +799,7 @@ mutable					: ID {
 							$$ = newExpNode(IdK, yylineno);
                             $$->attr.name = $1.id;
                             $$->lineNum = $1.lineNum;
-							$$ -> child[0] = $3;	
+							$$->child[0] = $3;
 						}
 						| ID '[' error { $$ = NULL; }
 						| error ']' { yyerrok; $$ = NULL; }
@@ -841,12 +809,8 @@ immutable				: '(' expression ')' {
 							yyerrok;
 							$$ = $2;
 						}
-						| call {
-							$$ = $1;
-						}	
-						| constant {
-							$$ = $1;
-						}
+						| call { $$ = $1; }
+						| constant { $$ = $1; }
 						| '(' error { $$ = NULL; }
 						;
 
@@ -860,9 +824,7 @@ call					: ID '(' args ')' {
 						| ID '(' error { $$ = NULL; }
 						;
 
-args					: arg_list {
-							$$ = $1;
-						}
+args					: arg_list { $$ = $1; }
 						| { $$ = NULL; }
 						;
 
@@ -877,9 +839,7 @@ arg_list				: arg_list ',' expression {
 								$$ = $3;
 							}
 						}
-						| expression {
-							$$ = $1;
-						}
+						| expression { $$ = $1; }
 						| error ',' expression { yyerrok; $$ = NULL; }
 						| arg_list ',' error { $$ = NULL; }
 						;
@@ -915,24 +875,27 @@ int main(int args, char** argv) {
 	initTokenMaps();
 	FILE* fptr;
 
-	int c, pFlag = 0, PFlag = 0;
-	while((c = getopt(args, argv, "dpP")) != EOF) {
+	int c; 
+	bool pFlag = false, PFlag = false, SFlag = false;
+	while((c = getopt(args, argv, "dpPS")) != EOF) {
 		switch(c) {
 			case 'd':
 				yydebug = 1;
 				break;
 			case 'p':
-				pFlag = 1;
+				pFlag = true;
 				break;
 			case 'P':
-				PFlag = 1;
+				PFlag = true;
 				break;
+			case 'S':
+				SFlag = true;
 			default:
 				break;
 		}
 	}
 
-	if(yydebug == 1 || pFlag == 1 || PFlag == 1) 
+	if(yydebug || pFlag || PFlag || SFlag) 
 		fptr = fopen(argv[2], "r");
 	else  
 		fptr = fopen(argv[1], "r");
@@ -946,9 +909,10 @@ int main(int args, char** argv) {
 	// Last arg is the bool NOTYPE or TYPE
 	if(pFlag) printTree(stdout, syntaxTree, 0, 0, 0); 
 	else if(numErrors == 0) {
-		scopeAndType(syntaxTree); // semantic analysis
+		c = scopeAndType(syntaxTree); // semantic analysis (return is global offset)
 		if(PFlag) printTree(stdout, syntaxTree, 0, 0, 1);  
 	}
+	if(PFlag) { printf("Offset for end of global space: %d\n", c); }
 	printf("Number of warnings: %d\nNumber of errors: %d\n", numWarnings, numErrors);
 	return 0;
 	

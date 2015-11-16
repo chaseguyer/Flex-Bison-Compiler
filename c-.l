@@ -20,9 +20,10 @@ char makeEscapeCharC(char* input) {
 	} 
 
 	else if(strlen(input) > 3 && input[0] != '\\') 
-		return 'E';
+		return '`'; // the ` is only temporary, it needs to be flagged for a warning somehow
+					// will change this later
 	else if(input[0] == '\'' && input[1] == '\'')
-		return 'E';
+		return '`';
 
 	return '\n';
 }
@@ -111,11 +112,11 @@ char* makeEscapeCharS(char* input) {
 "%"					{ yylval.token.input = strdup(yytext); yylval.token.lineNum = yylineno; return '%'; }
 "?"					{ yylval.token.input = strdup(yytext); yylval.token.lineNum = yylineno; return '?'; }
 [0-9]+				{ yylval.token.input = strdup(yytext); yylval.token.nconst = atoi(yytext); return NUMCONST; }
-\"(.)*\"			{ yylval.token.input = strdup(yytext); yylval.token.sconst = makeEscapeCharS(yytext); return STRINGCONST; }
-'(.)*'				{ 
+\"((\\\")|[^\"\n])*\"	{ yylval.token.input = strdup(yytext); yylval.token.sconst = makeEscapeCharS(yytext); return STRINGCONST; }
+'((\\\')|[^\'\n])*\'	{ 
 						yylval.token.input = strdup(yytext); 
 						yylval.token.cconst = makeEscapeCharC(yytext); 
-						if(yylval.token.cconst == 'E') {
+						if(yylval.token.cconst == '`') {
 							printf("WARNING(%d): character is %lu characters and not a single character: %s\n", yylineno, (strlen(strdup(yytext))-2), strdup(yytext)); // the -2 is for a ' at the beginning and end
 							numWarnings++;
 						}

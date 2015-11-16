@@ -103,7 +103,8 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool T
 					printf("Foreach ");
 					break;
 				case CompK:
-					printf("Compound ");
+					printf("Compound");
+					if(TYPE) { printf(" with size %d at end of it's declarations", tree->size); }
 					break;
 				case ReturnK:
 					printf("Return ");
@@ -178,44 +179,64 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool T
 					printf("Var %s ", tree -> attr.name);
 					if(tree -> isArray == 1)
 						printf("is array of ");
-					if(!TYPE) {printf("type ");} // ??
+					if(!TYPE) {printf("type ");}
 					if(tree -> type == Void) 
-						printf("void ");
+						printf("void");
 					else if(tree -> type == Integer) 
-						printf("int ");
+						printf("int");
 					else if(tree -> type == Boolean) 
-						printf("bool ");
+						printf("bool");
 					else if(tree -> type == Character) 
-						printf("char ");
+						printf("char");
+
+					// Mem loc stuff
+					printf(" allocated as");
+					if(tree->isGlobal) { printf(" Global"); }
+					else { printf(" Local"); }
+					if(tree->isStatic) { printf("Static"); }
+					printf(" of size %d", tree->size);
+					printf(" and data location %d", tree->offset);
 					break;
 				case FunK:
 					printf("Func %s returns type ", tree -> attr.name);
 					if(tree -> type == 0) 
-						printf("void ");
+						printf("void");
 					else if(tree -> type == 1) 
-						printf("int ");
+						printf("int");
 					else if(tree -> type == 2) 
-						printf("bool ");
+						printf("bool");
 					else if(tree -> type == 3) 
-						printf("char ");
+						printf("char");
+
+					// Mem loc stuff
+					printf(" allocated as Global");
+					printf(" of size %d", tree->size);
+					printf(" and exec location %d", tree->offset);
+
+
+
 					break;
 				case ParamK:
 					printf("Param %s ", tree -> attr.name);
 					if(tree -> isArray == 1)
 						printf("is array of ");
-					if(!TYPE) {printf("type ");} // ??
 					if(tree -> type == 0) 
-						printf("void ");
+						printf("void");
 					else if(tree -> type == 1) 
-						printf("int ");
+						printf("int");
 					else if(tree -> type == 2) 
-						printf("bool ");
+						printf("bool");
 					else if(tree -> type == 3) 
-						printf("char ");
+						printf("char");
+
+					// Mem loc stuff
+					printf(" allocated as Parameter");
+					printf(" of size %d", tree->size);
+					printf(" and data location %d", tree->offset);
 					break;	
 			}
 		}
-		printf("[line: %d]\n", tree -> lineNum);
+		printf(" [line: %d]\n", tree -> lineNum);
 
 		for(int i = 0; i < MAXCHILDREN; i++) {
 			cCount = i+1;
