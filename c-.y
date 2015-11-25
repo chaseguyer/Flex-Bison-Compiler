@@ -4,6 +4,8 @@
 #include"struct.h"
 #include"semantic.h"
 #include"symTab.h"
+#include"emitcode.h"
+#include"codegen.h"
 #include<iostream>
 #include<stdio.h>
 #include<stdlib.h>
@@ -16,7 +18,8 @@ using namespace std;
 extern int yylex();
 extern int yylineno;
 extern char* yytext;
-extern FILE *yyin;
+extern FILE *yyin; 
+FILE *code;
 
 TreeNode *syntaxTree = NULL;
 
@@ -876,8 +879,8 @@ int main(int args, char** argv) {
 	FILE* fptr;
 
 	int c; 
-	bool pFlag = false, PFlag = false, SFlag = false;
-	while((c = getopt(args, argv, "dpPS")) != EOF) {
+	bool pFlag = false, PFlag = false, oFlag = false;
+	while((c = getopt(args, argv, "dpPo")) != EOF) {
 		switch(c) {
 			case 'd':
 				yydebug = 1;
@@ -888,18 +891,27 @@ int main(int args, char** argv) {
 			case 'P':
 				PFlag = true;
 				break;
-			case 'S':
-				SFlag = true;
+			case 'o':
+				printf("Incorrect usage of -o flag.\n");
+				return 0;
 			default:
 				break;
 		}
 	}
 
-	if(yydebug || pFlag || PFlag || SFlag) 
-		fptr = fopen(argv[2], "r");
-	else  
-		fptr = fopen(argv[1], "r");
 
+	string arg;
+	if(yydebug == 1 || pFlag || PFlag) {
+		fptr = fopen(argv[2], "r");
+		// write tm code to filename.tm
+	} else {
+		fptr = fopen(argv[1], "r");
+		if(argv[2] != NULL && strcmp(argv[2], "-o") == 0) {
+			if(argv[3] != NULL) { arg = argv[3]; }
+		}
+	}
+
+	code = fptr;
 	yyin = fptr;
 
 	do {	
@@ -914,6 +926,7 @@ int main(int args, char** argv) {
 	}
 	if(PFlag) { printf("Offset for end of global space: %d\n", c); }
 	printf("Number of warnings: %d\nNumber of errors: %d\n", numWarnings, numErrors);
+	if(numErrors == 0) { codegen(code, syntaxTree, arg); }
 	return 0;
 	
 }

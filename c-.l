@@ -1,10 +1,12 @@
 %{
-#include "tree.c"
-#include "semantic.c"
-#include "symTab.cpp"
-#include <stdlib.h>
-#include <string.h>
-#include "c-.tab.h"
+#include"tree.cpp"
+#include"semantic.cpp"
+#include"symTab.cpp"
+#include"emitcode.cpp"
+#include"codegen.cpp"
+#include<stdlib.h>
+#include<string.h>
+#include"c-.tab.h"
 
 char makeEscapeCharC(char* input) {
 	if(strlen(input) == 3) 
