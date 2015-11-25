@@ -1,6 +1,6 @@
 BIN  = c-
 CC	 = g++
-SRCS = $(BIN).y $(BIN).l struct.h globals.h tree.h tree.c symTab.cpp symTab.h semantic.c semantic.h emitcode.cpp emitcode.h codegen.cpp codegen.h
+SRCS = $(BIN).y $(BIN).l struct.h globals.h tree.h tree.cpp symTab.cpp symTab.h semantic.cpp semantic.h emitcode.cpp emitcode.h codegen.cpp codegen.h synErr.cpp synErr.h
 OBJS = lex.yy.o $(BIN).tab.o
 LIBS = -lm
 

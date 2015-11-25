@@ -1,8 +1,10 @@
 #include<stdio.h>
 #include<stdlib.h>
-#include<iostream>
+#include<string>
 #include"semantic.h"
 #include"symTab.h"
+
+using namespace std;
 
 /*	 *	 *	 *	 *	 */
 
@@ -20,7 +22,7 @@ void printSymTab(SymbolTable st) {
 TreeNode *ptr, *child;					// handy ptr for various purposes
 bool isComp = false, isWarning = false, isSet = false, isReturn = false, isLoop = false; // various flags for error handling
 int globalOffset = 0, localOffset = 0;	// used in calculating location in memory
-char* funcName;							// used to pass around a call's original function decl
+string funcName;							// used to pass around a call's original function decl
 int paramNum = 0;						// used when comparing params of call to params of original decl
 int loopDepth = 1;						// used to figure out what depth we are at in a loop
 bool isFunc = false;
@@ -639,62 +641,65 @@ void errors(TreeNode *tree, int errorCode, TreeNode *p) {
 		numWarnings++;
 		isWarning = false;
 	}
-	//DECLARATIONS
-	if(errorCode == 1 ) { printf("ERROR(%d): Symbol '%s' is already defined at line %d.\n", tree->lineNum, tree->attr.name, p->lineNum); }
-	if(errorCode == 2 ) { printf("ERROR(%d): Symbol '%s' is not defined.\n", tree->lineNum, tree->attr.name); }
 
-	//EXPRESSIONS
-	if(errorCode == 3) { printf("ERROR(%d): '%s' requires operands of the same type but lhs is type %s and rhs is %s.\n", tree->lineNum, tree->attr.name, getType(tree->child[0]), getType(tree->child[1])); }
-	if(errorCode == 4) { printf("ERROR(%d): '%s' requires operands of type %s but lhs is of type %s.\n", tree->lineNum, tree->attr.name, getType(tree), getType(tree->child[0])); }
-	if(errorCode == 5) { printf("ERROR(%d): '%s' requires operands of type %s but rhs is of type %s.\n", tree->lineNum, tree->attr.name, getType(tree), getType(tree->child[1])); }
-	if(errorCode == 6) { printf("ERROR(%d): '%s' requires that if one operand is an array so must the other operand.\n", tree->lineNum, tree->attr.name); }
-	if(errorCode == 7) { printf("ERROR(%d): The operation '%s' does not work with arrays.\n", tree->lineNum, tree->attr.name); }
-	if(errorCode == 8) { printf("ERROR(%d): The operation '%s' only works with arrays.\n", tree->lineNum, tree->attr.name); }
-	if(errorCode == 9) { printf("ERROR(%d): Unary '%s' requires an operand of type %s but was given %s.\n", tree->lineNum, tree->attr.name, getType(tree), getType(tree->child[0])); }
+	switch(errorCode) {
+		// DECLARATIONS
+		case 1: printf("ERROR(%d): Symbol '%s' is already defined at line %d.\n", tree->lineNum, tree->attr.name, p->lineNum); break;
+		case 2: printf("ERROR(%d): Symbol '%s' is not defined.\n", tree->lineNum, tree->attr.name); break;
 
-	//TEST CONDITIONS
-	if(errorCode == 10) { printf("ERROR(%d): Cannot use array as test condition in %s statement.\n", tree->lineNum, tree->attr.name); }
-	if(errorCode == 11) { printf("ERROR(%d): Expecting Boolean test condition in %s statement but got type %s.\n", tree->lineNum, tree->attr.name, getType(p)); }
-
-	//RETURN
-	if(errorCode == 12) { printf("ERROR(%d): Cannot return an array.\n", tree->lineNum); }
-	if(errorCode == 13) { printf("ERROR(%d): Function '%s' at line %d is expecting no return value, but return has return value.\n", tree->lineNum, p->attr.name, p->lineNum); }
-	if(errorCode == 14) { printf("ERROR(%d): Function '%s' at line %d is expecting to return type %s but got %s.\n", tree->lineNum, p->attr.name, p->lineNum, getType(p), getType(tree->child[0])); }
-	if(errorCode == 15) { printf("ERROR(%d): Function '%s' at line %d is expecting to return type %s but return has no return value.\n", tree->lineNum, p->attr.name, p->lineNum, getType(p)); }
-	if(errorCode == 16) { printf("WARNING(%d): Expecting to return type %s but function '%s' has no return statement.\n", tree->lineNum, getType(tree), tree->attr.name); }
-
-	//BREAK
-	if(errorCode == 17) { printf("ERROR(%d): Cannot have a break statement outside of loop.\n", tree->lineNum); }
+		// EXPRESSIONS
+		case 3: printf("ERROR(%d): '%s' requires operands of the same type but lhs is type %s and rhs is %s.\n", tree->lineNum, tree->attr.name, getType(tree->child[0]), getType(tree->child[1])); break;
+		case 4: printf("ERROR(%d): '%s' requires operands of type %s but lhs is of type %s.\n", tree->lineNum, tree->attr.name, getType(tree), getType(tree->child[0])); break;
+		case 5: printf("ERROR(%d): '%s' requires operands of type %s but rhs is of type %s.\n", tree->lineNum, tree->attr.name, getType(tree), getType(tree->child[1])); break;
+		case 6: printf("ERROR(%d): '%s' requires that if one operand is an array so must the other operand.\n", tree->lineNum, tree->attr.name); break;
+		case 7: printf("ERROR(%d): The operation '%s' does not work with arrays.\n", tree->lineNum, tree->attr.name); break;
+		case 8: printf("ERROR(%d): The operation '%s' only works with arrays.\n", tree->lineNum, tree->attr.name); break;
+		case 9: printf("ERROR(%d): Unary '%s' requires an operand of type %s but was given %s.\n", tree->lineNum, tree->attr.name, getType(tree), getType(tree->child[0])); break;
 	
-	//FUNCTION INVOCATION
-	if(errorCode == 18) { printf("ERROR(%d): '%s' is a simple variable and cannot be called.\n", tree->lineNum, tree->attr.name); }
-	if(errorCode == 19) { printf("ERROR(%d): Cannot use function '%s' as a simple variable.\n", tree->lineNum, tree->attr.name); }
-
-	//ARRAY INDEXING
-    if(errorCode == 20) { printf("ERROR(%d): Array index is the unindexed array '%s'.\n", tree->lineNum, p->attr.name); }
-    if(errorCode == 21) { printf("ERROR(%d): Array '%s' should be indexed by type int but got %s.\n", tree->lineNum, tree->attr.name, getType(p)); }
-    if(errorCode == 22) { printf("ERROR(%d): Cannot index nonarray '%s'.\n", tree->lineNum, tree->attr.name); }
-
-	//PARAMETER LIST
-	if(errorCode == 23) { printf("ERROR(%d): Expecting type %s in parameter %i of call to '%s' defined on line %d but got %s.\n", tree->lineNum, getType(p), paramNum, ptr->attr.name, ptr->lineNum, getType(tree)); }
-	if(errorCode == 24) { printf("ERROR(%d): Expecting array in parameter %i of call to '%s' defined on line %d.\n", tree->lineNum, paramNum, p->attr.name, p->lineNum); }
-	if(errorCode == 25) { printf("ERROR(%d): Not expecting array in parameter %i of call to '%s' defined on line %d.\n", tree->lineNum, paramNum, p->attr.name, p->lineNum); }
-	if(errorCode == 26) { printf("ERROR(%d): Too few parameters passed for function '%s' defined on line %d.\n", tree->lineNum, tree->attr.name, p->lineNum); }
-	if(errorCode == 27) { printf("ERROR(%d): Too many parameters passed for function '%s' defined on line %d.\n", tree->lineNum, tree->attr.name, p->lineNum); }
-
-	//FOREACH
-	if(errorCode == 28) { printf("ERROR(%d): Foreach requires operands of 'in' be the same type but lhs is type %s and rhs array is type %s.\n", tree->lineNum, getType(tree->child[0]), getType(tree->child[1])); }
-	if(errorCode == 29) { printf("ERROR(%d): If not an array, foreach requires lhs of 'in' be of type int but it is type %s.\n", tree->lineNum, getType(tree->child[0])); }
-	if(errorCode == 30) { printf("ERROR(%d): If not an array, foreach requires rhs of 'in' be of type int but it is type %s.\n", tree->lineNum, getType(tree->child[1])); }
-	if(errorCode == 31) { printf("ERROR(%d): In foreach statement the variable to the left of 'in' must not be an array.\n", tree->lineNum); }
-
-	//INITIALIZERS
-	if(errorCode == 32) { printf("ERROR(%d): Array '%s' must be of type char to be initialized, but is of type %s.\n", tree->lineNum, tree->attr.name, getType(tree)); }
-	if(errorCode == 33) { printf("ERROR(%d): Initializer for array variable '%s' must be a string, but is of nonarray type %s.\n", tree->lineNum, tree->attr.name, getType(p)); }
-	if(errorCode == 34) { printf("ERROR(%d): Initializer for nonarray variable '%s' of type %s cannot be initialized with an array.\n", tree->lineNum, tree->attr.name, getType(tree)); }
-	if(errorCode == 35) { printf("ERROR(%d): Initializer for variable '%s' is not a constant expression.\n", tree->lineNum, tree->attr.name); }
-	if(errorCode == 36) { printf("ERROR(%d): Variable '%s' is of type %s but is being initialized with an expression of type %s.\n", tree->lineNum, tree->attr.name, getType(tree), getType(p)); }
+		// TEST CONDITIONS
+		case 10: printf("ERROR(%d): Cannot use array as test condition in %s statement.\n", tree->lineNum, tree->attr.name); break;
+		case 11: printf("ERROR(%d): Expecting Boolean test condition in %s statement but got type %s.\n", tree->lineNum, tree->attr.name, getType(p)); break;
 	
-	//MISC
-	if(errorCode == 37) { printf("ERROR(LINKER): Procedure main is not defined.\n"); }
+		// RETURN
+		case 12: printf("ERROR(%d): Cannot return an array.\n", tree->lineNum); break;
+		case 13: printf("ERROR(%d): Function '%s' at line %d is expecting no return value, but return has return value.\n", tree->lineNum, p->attr.name, p->lineNum); break;
+		case 14: printf("ERROR(%d): Function '%s' at line %d is expecting to return type %s but got %s.\n", tree->lineNum, p->attr.name, p->lineNum, getType(p), getType(tree->child[0])); break;
+		case 15: printf("ERROR(%d): Function '%s' at line %d is expecting to return type %s but return has no return value.\n", tree->lineNum, p->attr.name, p->lineNum, getType(p)); break;
+		case 16: printf("WARNING(%d): Expecting to return type %s but function '%s' has no return statement.\n", tree->lineNum, getType(tree), tree->attr.name); break;
+	
+		// BREAK
+		case 17: printf("ERROR(%d): Cannot have a break statement outside of loop.\n", tree->lineNum); break;
+		
+		// FUNCTION INVOCATION
+		case 18: printf("ERROR(%d): '%s' is a simple variable and cannot be called.\n", tree->lineNum, tree->attr.name); break;
+		case 19: printf("ERROR(%d): Cannot use function '%s' as a simple variable.\n", tree->lineNum, tree->attr.name); break;
+	
+		// ARRAY INDEXING
+	    case 20: printf("ERROR(%d): Array index is the unindexed array '%s'.\n", tree->lineNum, p->attr.name); break;
+	    case 21: printf("ERROR(%d): Array '%s' should be indexed by type int but got %s.\n", tree->lineNum, tree->attr.name, getType(p)); break;
+	    case 22: printf("ERROR(%d): Cannot index nonarray '%s'.\n", tree->lineNum, tree->attr.name); break;
+	
+		// PARAMETER LIST
+		case 23: printf("ERROR(%d): Expecting type %s in parameter %i of call to '%s' defined on line %d but got %s.\n", tree->lineNum, getType(p), paramNum, ptr->attr.name, ptr->lineNum, getType(tree)); break;
+		case 24: printf("ERROR(%d): Expecting array in parameter %i of call to '%s' defined on line %d.\n", tree->lineNum, paramNum, p->attr.name, p->lineNum); break;
+		case 25: printf("ERROR(%d): Not expecting array in parameter %i of call to '%s' defined on line %d.\n", tree->lineNum, paramNum, p->attr.name, p->lineNum); break;
+		case 26: printf("ERROR(%d): Too few parameters passed for function '%s' defined on line %d.\n", tree->lineNum, tree->attr.name, p->lineNum); break;
+		case 27: printf("ERROR(%d): Too many parameters passed for function '%s' defined on line %d.\n", tree->lineNum, tree->attr.name, p->lineNum); break;
+
+		// FOREACH
+		case 28: printf("ERROR(%d): Foreach requires operands of 'in' be the same type but lhs is type %s and rhs array is type %s.\n", tree->lineNum, getType(tree->child[0]), getType(tree->child[1])); break;
+		case 29: printf("ERROR(%d): If not an array, foreach requires lhs of 'in' be of type int but it is type %s.\n", tree->lineNum, getType(tree->child[0])); break;
+		case 30: printf("ERROR(%d): If not an array, foreach requires rhs of 'in' be of type int but it is type %s.\n", tree->lineNum, getType(tree->child[1])); break;
+		case 31: printf("ERROR(%d): In foreach statement the variable to the left of 'in' must not be an array.\n", tree->lineNum); break;
+	
+		// INITIALIZERS
+		case 32: printf("ERROR(%d): Array '%s' must be of type char to be initialized, but is of type %s.\n", tree->lineNum, tree->attr.name, getType(tree)); break;
+		case 33: printf("ERROR(%d): Initializer for array variable '%s' must be a string, but is of nonarray type %s.\n", tree->lineNum, tree->attr.name, getType(p)); break;
+		case 34: printf("ERROR(%d): Initializer for nonarray variable '%s' of type %s cannot be initialized with an array.\n", tree->lineNum, tree->attr.name, getType(tree)); break;
+		case 35: printf("ERROR(%d): Initializer for variable '%s' is not a constant expression.\n", tree->lineNum, tree->attr.name); break;
+		case 36: printf("ERROR(%d): Variable '%s' is of type %s but is being initialized with an expression of type %s.\n", tree->lineNum, tree->attr.name, getType(tree), getType(p)); break;
+		
+		// MISC
+		case 37: printf("ERROR(LINKER): Procedure main is not defined.\n"); break;
+	}
 }

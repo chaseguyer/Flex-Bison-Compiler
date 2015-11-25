@@ -1,12 +1,21 @@
+#include<string>
 #include<stdio.h>
 #include<stdlib.h>
 #include"globals.h"
 #include"tree.h"
 #include"struct.h"
 
-extern int numErrors, numWarnings;
+#define INDENT indentno+=3
+#define UNINDENT indentno-=3
 
-TreeNode * newStmtNode(StmtKind kind, int lineNum) {
+using namespace std;
+
+extern int numErrors, numWarnings;
+static int indentno = 0;
+int indentIndex = 0, firstRun = 1, cCount = 0;
+
+// Create a new treenode of type stmt
+TreeNode *newStmtNode(StmtKind kind, int lineNum) {
     TreeNode *t = (TreeNode *) malloc(sizeof(TreeNode));
     int i;
     if(t == NULL)
@@ -21,7 +30,8 @@ TreeNode * newStmtNode(StmtKind kind, int lineNum) {
     return t;
 }
 
-TreeNode * newExpNode(ExpKind kind, int lineNum) {
+// Create a new treenode of type exp
+TreeNode *newExpNode(ExpKind kind, int lineNum) {
     TreeNode *t = (TreeNode *) malloc(sizeof(TreeNode));
     int i;
     if(t == NULL)
@@ -37,7 +47,8 @@ TreeNode * newExpNode(ExpKind kind, int lineNum) {
     return t;
 }
 
-TreeNode * newDeclNode(DeclKind kind, int lineNum) {
+// Create a new treenode of type decl
+TreeNode *newDeclNode(DeclKind kind, int lineNum) {
     TreeNode *t = (TreeNode *) malloc(sizeof(TreeNode));
     int i;
     if(t == NULL)
@@ -53,25 +64,33 @@ TreeNode * newDeclNode(DeclKind kind, int lineNum) {
     return t;
 }
 
-static int indentno = 0;
-int indentIndex = 0;
-int firstRun = 1;
-int cCount = 0;
-
-#define INDENT indentno+=3
-#define UNINDENT indentno-=3
+/*
+string getType(TreeNode *tree) {
+	string type;
+    if(tree->type == 0) { type = "void"; }
+    if(tree->type == 1) { type = "int"; }
+    if(tree->type == 2) { type = "bool"; }
+    if(tree->type == 3) { type = "char"; }
+    if(tree->type == 4) { type = "string"; }
+    if(tree->type == 5) { type = "error"; }
+    if(tree->type == 6) { type = "undefined type"; }
+    if(tree->type == 7) { type = "char or int"; }
+    return type;
+}
+*/
 
 // Used to return a string version of the enum types
 char* getType(TreeNode *tree) {
-    if(tree->type == 0) { return strdup("void"); }
-    if(tree->type == 1) { return strdup("int"); }
-    if(tree->type == 2) { return strdup("bool"); }
-    if(tree->type == 3) { return strdup("char"); }
-    if(tree->type == 4) { return strdup("string"); }
-    if(tree->type == 5) { return strdup("error"); }
-    if(tree->type == 6) { return strdup("undefined type"); }
-    if(tree->type == 7) { return strdup("char or int"); }
-    return strdup("[NO TYPE DETERMINED]");
+    char *type;
+    if(tree->type == 0) { type = strdup("void"); }
+    if(tree->type == 1) { type = strdup("int"); }
+    if(tree->type == 2) { type = strdup("bool"); }
+    if(tree->type == 3) { type = strdup("char"); }
+    if(tree->type == 4) { type = strdup("string"); }
+    if(tree->type == 5) { type = strdup("error"); }
+    if(tree->type == 6) { type = strdup("undefined type"); }
+    if(tree->type == 7) { type = strdup("char or int"); }
+    return type;
 }
 
 static void printSpacing(TreeNode *t, int sCount, int indentIndex) { 

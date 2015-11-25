@@ -1,9 +1,11 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include<string>
 #include"emitcode.h"
 #include"codegen.h"
 #include"globals.h"
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
+
+using namespace std;
 
 extern FILE *code;
 

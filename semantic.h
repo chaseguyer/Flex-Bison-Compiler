@@ -3,6 +3,9 @@
 
 #include "symTab.h"
 
+string stuff();
+
+
 void treeTraverse(TreeNode*, SymbolTable);
 void printSymTab(SymbolTable);
 int scopeAndType(TreeNode*&);
