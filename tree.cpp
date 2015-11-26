@@ -110,8 +110,8 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool T
 	firstRun = 0;
 	while(tree != NULL) {
 		printSpacing(tree, sCount, indentIndex);
-		if(tree -> nodekind == StmtK) {
-			switch(tree -> kind.stmt) {
+		if(tree->nodekind == StmtK) {
+			switch(tree->kind.stmt) {
 				case IfK:
 					printf("If ");
 					break;
@@ -136,10 +136,10 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool T
 					break;
 			}
 		}
-		else if(tree -> nodekind == ExpK) {
-			switch(tree -> kind.exp) {
+		else if(tree->nodekind == ExpK) {
+			switch(tree->kind.exp) {
 				case OpK:
-					printf("Op: %s ", tree -> attr.name);
+					printf("Op: %s ", tree->attr.name);
 					if(TYPE) printf("Type: %s ", getType(tree));
 					break; 	
 				case ConstK:
@@ -192,20 +192,20 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool T
 					break;
 			} 
 		}
-		else if(tree -> nodekind == DeclK) {
-			switch(tree -> kind.decl) {
+		else if(tree->nodekind == DeclK) {
+			switch(tree->kind.decl) {
 				case VarK:
-					printf("Var %s ", tree -> attr.name);
-					if(tree -> isArray == 1)
+					printf("Var %s ", tree->attr.name);
+					if(tree->isArray == 1)
 						printf("is array of ");
 					if(!TYPE) {printf("type ");}
-					if(tree -> type == Void) 
+					if(tree->type == Void) 
 						printf("void");
-					else if(tree -> type == Integer) 
+					else if(tree->type == Integer) 
 						printf("int");
-					else if(tree -> type == Boolean) 
+					else if(tree->type == Boolean) 
 						printf("bool");
-					else if(tree -> type == Character) 
+					else if(tree->type == Character) 
 						printf("char");
 
 					// Mem loc stuff
@@ -218,34 +218,31 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool T
 					break;
 				case FunK:
 					printf("Func %s returns type ", tree -> attr.name);
-					if(tree -> type == 0) 
+					if(tree->type == 0) 
 						printf("void");
-					else if(tree -> type == 1) 
+					else if(tree->type == 1) 
 						printf("int");
-					else if(tree -> type == 2) 
+					else if(tree->type == 2) 
 						printf("bool");
-					else if(tree -> type == 3) 
+					else if(tree->type == 3) 
 						printf("char");
 
 					// Mem loc stuff
 					printf(" allocated as Global");
 					printf(" of size %d", tree->size);
 					printf(" and exec location %d", tree->offset);
-
-
-
 					break;
 				case ParamK:
 					printf("Param %s ", tree -> attr.name);
-					if(tree -> isArray == 1)
+					if(tree->isArray == 1)
 						printf("is array of ");
-					if(tree -> type == 0) 
+					if(tree->type == 0) 
 						printf("void");
-					else if(tree -> type == 1) 
+					else if(tree->type == 1) 
 						printf("int");
-					else if(tree -> type == 2) 
+					else if(tree->type == 2) 
 						printf("bool");
-					else if(tree -> type == 3) 
+					else if(tree->type == 3) 
 						printf("char");
 
 					// Mem loc stuff
@@ -255,14 +252,14 @@ void printTree(FILE* stdout, TreeNode *tree, int sCount, int indentIndex, bool T
 					break;	
 			}
 		}
-		printf(" [line: %d]\n", tree -> lineNum);
+		printf(" [line: %d]\n", tree->lineNum);
 
 		for(int i = 0; i < MAXCHILDREN; i++) {
 			cCount = i+1;
-			printTree(stdout, tree -> child[i], 0, 0, TYPE);
+			printTree(stdout, tree->child[i], 0, 0, TYPE);
 			cCount = 0;
 		}
-		tree = tree -> sibling;
+		tree = tree->sibling;
 		sCount++;
 	}
 	UNINDENT;

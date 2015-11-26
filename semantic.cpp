@@ -20,12 +20,11 @@ void printSymTab(SymbolTable st) {
 /*	 *	 *	 *	 *	 */
 
 TreeNode *ptr, *child;					// handy ptr for various purposes
-bool isComp = false, isWarning = false, isSet = false, isReturn = false, isLoop = false; // various flags for error handling
+bool isComp = false, isWarning = false, isSet = false, isReturn = false, isLoop = false, isFunc = false; // various flags for error handling
 int globalOffset = 0, localOffset = 0;	// used in calculating location in memory
 string funcName;							// used to pass around a call's original function decl
 int paramNum = 0;						// used when comparing params of call to params of original decl
 int loopDepth = 1;						// used to figure out what depth we are at in a loop
-bool isFunc = false;
 
 // Specifies scopes, types tree members, handles errors
 int scopeAndType(TreeNode *&tree) {
@@ -44,7 +43,6 @@ void addIORoutines(TreeNode *&tree) {
     string routineName[7] = {"input", "output", "inputb", "outputb", "inputc", "outputc", "outnl"};
     ExpType retType[7] = {Integer, Void, Boolean, Void, Character, Void, Void};
     ExpType paramType[7] = {Void, Integer, Void, Boolean, Void, Character, Void};
-
 	TreeNode *array[7]; 
 
     // add the IO routines with dummy nodes
@@ -81,6 +79,8 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 	TreeNode *funcParams, *callParams;		// TreeNodes to store values in
 	TreeNode *func, *tmp;					// TreeNodes to store values in
 	int locOff = localOffset;				// a local local offset variable 
+	ExpType expectLHS, expectRHS;			// used when comparing operators' children
+
 	while(tree != NULL) {
 
 		/*** STATEMENT KIND ***/
@@ -204,7 +204,6 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 			switch(tree->kind.exp) {
 				case OpK:
 				case AssignK:
-					ExpType expectLHS, expectRHS;
 					isSet = true;
 					tree = getOpTypes(expectLHS, expectRHS, tree);
 					isSet = false;
@@ -277,8 +276,8 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 							if(tree->child[0] != NULL) { // that is being indexed
 								if(tree->child[0]->attr.name != NULL) { // child is an Id
 									if(tree->child[0]->isArray == true) { // child is an array
-										// 20: Array index is the unindexed array '%s'.\n (aa[aa])
 										if(tree->child[0]->isIndexed == false) { // child is an unindexed array
+											// 20: Array index is the unindexed array '%s'.\n (aa[aa])
 											if(tree->child[0]->type != Integer && tree->child[0]->type != Undefined) { // type int?
 												errors(tree, 21, tree->child[0]);
 											}
@@ -419,8 +418,6 @@ void treeTraverse(TreeNode *tree, SymbolTable st) {
 					newScope = true;
 
 					for(int i = 0; i < MAXCHILDREN; i++) { treeTraverse(tree->child[i], st); }
-
-					//offsetTmp = 0; // reset for the next function
 
 					// 16: Expecting to return type %s but function '%s' has no return statement.\n"
 					if(isReturn == false && tree->lineNum != -1 && tree->type != Void) {

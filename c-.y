@@ -96,8 +96,8 @@ program					: declaration_list { syntaxTree = $1; }
 declaration_list		: declaration_list declaration {
 							TreeNode *t = $1;
 							if(t != NULL) {
-								while(t -> sibling != NULL) t = t -> sibling;
-								t -> sibling = $2;
+								while(t->sibling != NULL) t = t->sibling;
+								t->sibling = $2;
 								$$ = $1;
 							} 
 							else {
@@ -214,16 +214,16 @@ type_specifier			: INT {
 
 fun_declaration			: type_specifier ID '(' params ')' statement {
 							$$ = newDeclNode(FunK, $3.lineNum);
-							$$ -> child[0] = $4;
-							$$ -> child[1] = $6;
+							$$->child[0] = $4;
+							$$->child[1] = $6;
                             $$->attr.name = $2.id;
                             $$->lineNum = $2.lineNum;
-							$$ -> type = (ExpType)$1;
+							$$->type = (ExpType)$1;
 						} 
 						| ID '(' params ')' statement {
 							$$ = newDeclNode(FunK, $2.lineNum);
-							$$ -> child[0] = $3;	
-							$$ -> child[1] = $5;
+							$$->child[0] = $3;	
+							$$->child[1] = $5;
                             $$->attr.name = $1.id;
                             $$->lineNum = $1.lineNum;
 						}
@@ -244,8 +244,8 @@ param_list				: param_list ';' param_type_list {
 							yyerrok;
 							TreeNode *t = $1;
 							if(t != NULL) {
-								while(t -> sibling != NULL) t = t -> sibling;
-								t -> sibling = $3;
+								while(t->sibling != NULL) t = t->sibling;
+								t->sibling = $3;
 								$$ = $1;
 							} else
 								$$ = $3;
@@ -261,8 +261,8 @@ param_type_list			: type_specifier param_id_list {
 							TreeNode *t = $2;
 							if(t != NULL) {
 								do {
-									t -> type = (ExpType)$1;
-									t = t -> sibling;
+									t->type = (ExpType)$1;
+									t = t->sibling;
 								} while(t != NULL);
 								
 								$$ = $2;
@@ -276,8 +276,8 @@ param_id_list			: param_id_list ',' param_id {
 							yyerrok;
 							TreeNode *t = $1;
 							if(t != NULL) {
-								while(t -> sibling != NULL) t = t -> sibling;
-								t -> sibling = $3;
+								while(t->sibling != NULL) t = t->sibling;
+								t->sibling = $3;
 								$$ = $1;
 							} else
 								$$ = $3;
@@ -300,7 +300,7 @@ param_id				: ID {
 							$$ = newDeclNode(ParamK, yylineno);
                             $$->attr.name = $1.id;
                             $$->lineNum = $1.lineNum;
-							$$ -> isArray = 1;
+							$$->isArray = 1;
 						}
 						| error { $$ = NULL; }
 						;
@@ -371,10 +371,10 @@ expression_stmt			: expression ';' {
 
 matched_selection_stmt	: IF '(' simple_expression ')' matched ELSE matched {
 							$$ = newStmtNode(IfK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
-							$$ -> child[2] = $7;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
+							$$->child[2] = $7;
 						}
 						| IF '(' error ')' matched ELSE matched { $$ = NULL; }
 						| error { $$ = NULL; }
@@ -382,22 +382,22 @@ matched_selection_stmt	: IF '(' simple_expression ')' matched ELSE matched {
 
 unmatched_selection_stmt: IF '(' simple_expression ')' matched {
 							$$ = newStmtNode(IfK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
 						}
 						| IF '(' simple_expression ')' unmatched {
 							$$ = newStmtNode(IfK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
 						}
 						| IF '(' simple_expression ')' matched ELSE unmatched {
 							$$ = newStmtNode(IfK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
-							$$ -> child[2] = $7;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
+							$$->child[2] = $7;
 						}
 						| IF '(' error ')' statement { $$ = NULL; }
 						| IF '(' error ')' matched ELSE unmatched { $$ = NULL; }
@@ -405,38 +405,38 @@ unmatched_selection_stmt: IF '(' simple_expression ')' matched {
 
 matched_foreach_stmt	: FOREACH '(' mutable IN simple_expression ')' matched {
 							$$ = newStmtNode(ForeachK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
-							$$ -> child[2] = $7;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
+							$$->child[2] = $7;
 						}
 						| FOREACH '(' error ')' matched { $$ = NULL; }
 						;
 
 unmatched_foreach_stmt	: FOREACH '(' mutable IN simple_expression ')' unmatched {
 							$$ = newStmtNode(ForeachK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
-							$$ -> child[2] = $7;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
+							$$->child[2] = $7;
 						}
 						| FOREACH '(' error ')' unmatched { $$ = NULL; }
 						;
 
 matched_while_stmt		: WHILE '(' simple_expression ')' matched {
 							$$ = newStmtNode(WhileK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
 						}
 						| WHILE '(' error ')' matched { $$ = NULL; }
 						;
 
 unmatched_while_stmt	: WHILE '(' simple_expression ')' unmatched {
 							$$ = newStmtNode(WhileK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
 						}
 						| WHILE '(' error ')' unmatched { $$ = NULL; }
 						;
@@ -444,42 +444,42 @@ unmatched_while_stmt	: WHILE '(' simple_expression ')' unmatched {
 return_stmt				: RETURN ';' { 
 							yyerrok;
 							$$ = newStmtNode(ReturnK, $1.lineNum);
-							$$ -> attr.name = $1.input;	
+							$$->attr.name = $1.input;	
 						}
 						| RETURN expression ';' {
 							yyerrok;
 							$$ = newStmtNode(ReturnK, $1.lineNum);
-							$$ -> attr.name = $1.input;	
-							$$ -> child[0] = $2;	
+							$$->attr.name = $1.input;	
+							$$->child[0] = $2;	
 						}
 						;
 
 break_stmt				: BREAK ';' {
 							yyerrok;
 							$$ = newStmtNode(BreakK, $1.lineNum);
-							$$ -> attr.name = $1.input;	
+							$$->attr.name = $1.input;	
 						}
 						;
 
 expression				: mutable assignop expression {
 							$$ = newExpNode(AssignK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> child[1] = $3;
-							$$ -> attr.name = $2.input;
+							$$->child[0] = $1;
+							$$->child[1] = $3;
+							$$->attr.name = $2.input;
 							$$->lineNum = $2.lineNum;
 						}
 						| mutable INC{
 							yyerrok;
 							$$ = newExpNode(AssignK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> attr.name = $2.input;
+							$$->child[0] = $1;
+							$$->attr.name = $2.input;
                             $$->lineNum = $2.lineNum;
 						}
 						| mutable DEC{
 							yyerrok;
 							$$ = newExpNode(AssignK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> attr.name = $2.input;
+							$$->child[0] = $1;
+							$$->attr.name = $2.input;
                             $$->lineNum = $2.lineNum;
 						}
 						| simple_expression {
@@ -501,9 +501,9 @@ assignop				: '=' { $$ = $1; }
 
 simple_expression		: simple_expression '|' and_expression {
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> child[1] = $3;
-							$$ -> attr.name = $2.input;
+							$$->child[0] = $1;
+							$$->child[1] = $3;
+							$$->attr.name = $2.input;
                             $$->lineNum = $2.lineNum;
 						}
 						| and_expression { $$= $1; }
@@ -514,9 +514,9 @@ simple_expression		: simple_expression '|' and_expression {
 
 and_expression			: and_expression '&' unary_rel_expression {
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> child[1] = $3;
-							$$ -> attr.name = $2.input;
+							$$->child[0] = $1;
+							$$->child[1] = $3;
+							$$->attr.name = $2.input;
                             $$->lineNum = $2.lineNum;
 						}
 						| unary_rel_expression { $$= $1; }
@@ -527,8 +527,8 @@ and_expression			: and_expression '&' unary_rel_expression {
 
 unary_rel_expression	: '!' unary_rel_expression {
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> child[0] = $2;
-							$$ -> attr.name = $1.input;
+							$$->child[0] = $2;
+							$$->attr.name = $1.input;
                             $$->lineNum = $1.lineNum;
 						}
 						| rel_expression { $$= $1; }
@@ -537,8 +537,8 @@ unary_rel_expression	: '!' unary_rel_expression {
 
 rel_expression			: sum_expression relop sum_expression { 
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> child[1] = $3;
+							$$->child[0] = $1;
+							$$->child[1] = $3;
 							$$->attr.name = $2.input;
                             $$->lineNum = $2.lineNum;
 						}
@@ -560,9 +560,9 @@ relop					: LESSEQ { $$ = $1; }
 
 sum_expression			: sum_expression sumop term {
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> child[1] = $3;
-							$$ -> attr.name = $2.input;
+							$$->child[0] = $1;
+							$$->child[1] = $3;
+							$$->attr.name = $2.input;
                             $$->lineNum = $2.lineNum;
 						}
 						| term { $$ = $1; }
@@ -577,9 +577,9 @@ sumop					: '+' { $$ = $1; }
 
 term					: term mulop unary_expression {
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> child[1] = $3;
-							$$ -> attr.name = $2.input;
+							$$->child[0] = $1;
+							$$->child[1] = $3;
+							$$->attr.name = $2.input;
                             $$->lineNum = $2.lineNum;
 						}
 						| unary_expression { $$ = $1; }
@@ -595,9 +595,9 @@ mulop					: '*' { $$ = $1; }
 
 unary_expression		: unaryop unary_expression {
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> attr.name = $1.input;
+							$$->attr.name = $1.input;
                             $$->lineNum = $1.lineNum;
-							$$ -> child[0] = $2;	
+							$$->child[0] = $2;	
 						}
 						| factor { $$ = $1; }
 						| unaryop error { $$ = NULL; }
@@ -643,7 +643,7 @@ call					: ID '(' args ')' {
 							$$ = newExpNode(CallK, $2.lineNum);
                             $$->attr.name = $1.id;
                             $$->lineNum = $1.lineNum; 
-							$$ -> child[0] = $3;	
+							$$->child[0] = $3;	
 						}
 						| ID '(' error { $$ = NULL; }
 						;
@@ -656,8 +656,8 @@ arg_list				: arg_list ',' expression {
 							yyerrok;
 							TreeNode *t = $1;
 							if(t != NULL) {
-								while(t -> sibling != NULL) t = t -> sibling;
-								t -> sibling = $3;
+								while(t->sibling != NULL) t = t->sibling;
+								t->sibling = $3;
 								$$ = $1;
 							} else {
 								$$ = $3;
