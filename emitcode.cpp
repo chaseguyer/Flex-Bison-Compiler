@@ -12,9 +12,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <string>
 #include "globals.h"
 #include "emitcode.h"
+
+using namespace std;
 
 extern FILE *code;
 

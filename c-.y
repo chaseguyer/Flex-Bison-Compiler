@@ -1,205 +1,26 @@
 %{
+#include<string>
+#include<stdio.h>
+#include<stdlib.h>
+#include<getopt.h>
+#include"struct.h"
 #include"globals.h"
 #include"tree.h"
-#include"struct.h"
 #include"semantic.h"
 #include"symTab.h"
 #include"emitcode.h"
 #include"codegen.h"
-#include<iostream>
-#include<stdio.h>
-#include<stdlib.h>
-#include<cstring>
-#include<getopt.h>
+#include"synErr.h"
+
 #define YYERROR_VERBOSE
 
-using namespace std;
-
-extern int yylex();
-extern int yylineno;
+extern int yylex(), yylineno;
 extern char* yytext;
 extern FILE *yyin; 
+int numWarnings = 0, numErrors = 0;
 FILE *code;
 
 TreeNode *syntaxTree = NULL;
-
-int numWarnings = 0, numErrors = 0;
-
-// // // // // // // // // // // // // // // // // // // // 
-//
-// Error message printing
-//
-// Must make messages look nice.  For example:
-// msg = "syntax error, unexpected ',', expecting BOOL or CHAR or INT or ID."
-// becomes (xx marks important data):
-//  0 syntax
-//  1 error,
-//  2 unexpected
-//  3 ',',    xx
-//  4 expecting
-//  5 BOOL    xx
-//  6 or
-//  7 CHAR    xx
-//  8 or
-//  9 INT     xx
-// 10 or
-// 11 ID.     xx
-
-// assumes a string with breakchar separating each element.
-// breakchars will be replaced by null chars: '\0'
-// array of pointers to strings is then returned in
-// the array strs which must be allocated by the user!
-// the number of strings found is returned as a value of
-// the function.  This number is always at least 1.
-// The array is terminated by a NULL so there must be
-// enough room for all the string pointers plus one for the
-// sentinal marker.
-int split(char *s, char *strs[], char breakchar)
-{
-    int num;
-    
-    strs[0] = s;
-    num = 1;
-    for (char *p = s; *p; p++) {
-        if (*p==breakchar) {
-            strs[num++] = p+1;
-            *p = '\0';
-        }
-    }
-    strs[num] = NULL;
-    
-    return num;
-}
-
-
-// trim off the last character
-void trim(char *s)
-{
-    s[strlen(s)-1] = '\0';
-}
-
-
-// map from string to char * for storing nice translation of
-// internal names for tokens.  Preserves (char *) used by
-// bison.
-static std::map<std::string , char *> niceTokenNameMap;    // use an ordered map (not as fast as unordered)
-
-// WARNING: this routine must be called to initialize mapping of
-// (strings returned as error message) --> (human readable strings)
-//
-void initTokenMaps() {
-    niceTokenNameMap["NOTEQ"] = (char *)"'!='";
-    niceTokenNameMap["MULASS"] = (char *)"'*='";
-    niceTokenNameMap["INC"] = (char *)"'++'";
-    niceTokenNameMap["ADDASS"] = (char *)"'+='";
-    niceTokenNameMap["DEC"] = (char *)"'--'";
-    niceTokenNameMap["SUBASS"] = (char *)"'-='";
-    niceTokenNameMap["DIVASS"] = (char *)"'/='";
-    niceTokenNameMap["LESSEQ"] = (char *)"'<='";
-    niceTokenNameMap["EQ"] = (char *)"'=='";
-    niceTokenNameMap["GRTEQ"] = (char *)"'>='";
-    niceTokenNameMap["BOOL"] = (char *)"bool";
-    niceTokenNameMap["BREAK"] = (char *)"break";
-    niceTokenNameMap["CHAR"] = (char *)"char";
-    niceTokenNameMap["ELSE"] = (char *)"else";
-    niceTokenNameMap["FOREACH"] = (char *)"foreach";
-    niceTokenNameMap["IF"] = (char *)"if";
-    niceTokenNameMap["IN"] = (char *)"in";
-    niceTokenNameMap["INT"] = (char *)"int";
-    niceTokenNameMap["RETURN"] = (char *)"return";
-    niceTokenNameMap["STATIC"] = (char *)"static";
-    niceTokenNameMap["WHILE"] = (char *)"while";
-    niceTokenNameMap["BOOLCONST"] = (char *)"Boolean constant";
-    niceTokenNameMap["NUMCONST"] = (char *)"numeric constant";
-    niceTokenNameMap["ID"] = (char *)"identifier";
-    niceTokenNameMap["CHARCONST"] = (char *)"character constant";
-    niceTokenNameMap["STRINGCONST"] = (char *)"string constant";
-    niceTokenNameMap["$end"] = (char *)"end of input";
-}
-
-
-// looks of pretty printed words for tokens that are
-// not already in single quotes.  It uses the niceTokenNameMap table.
-char *niceTokenStr(char *tokenName ) {
-    if (tokenName[0] == '\'') return tokenName;
-    if (niceTokenNameMap.find(tokenName) == niceTokenNameMap.end()) {
-        printf("ERROR(SYSTEM): niceTokenStr fails to find string '%s'\n", tokenName); 
-        fflush(stdout);
-        exit(1);
-    }
-    return niceTokenNameMap[tokenName];
-}
-
-
-// Is this a message that we need to elaborate with the current parsed token.
-// This elaboration is some what of a crap shoot since the token could
-// be already overwritten with a look ahead token.   But probably not.
-bool elaborate(char *s)
-{
-    return (strstr(s, "constant") || strstr(s, "identifier"));
-}
-
-
-// A tiny sort routine for SMALL NUMBERS of
-// of char * elements.  num is the total length
-// of the array but only every step elements will
-// be sorted.  The "up" flag is direction of sort.
-// For example:
-//    tinySort(str, i, 2, direction);      // sorts even number elements in array
-//    tinySort(str+1, i-1, 2, direction);  // sorts odd number elements in array
-//    tinySort(str, i, 1, direction);      // sorts all elements in array
-//
-void tinySort(char *base[], int num, int step, bool up)
-{
-    for (int i=step; i<num; i+=step) {
-        for (int j=0; j<i; j+=step) {
-            if (up ^ (strcmp(base[i], base[j])>0)) {
-                char *tmp;
-                tmp = base[i]; base[i] = base[j]; base[j] = tmp;
-            }
-        }
-    }
-}
-
-
-// This is the yyerror called by the bison parser for errors.
-// It only does errors and not warnings.   
-void yyerror(const char *msg)
-{
-    char *space;
-    char *strs[100];
-    int numstrs;
-
-    // make a copy of msg string
-    space = strdup(msg);
-
-    // split out components
-    numstrs = split(space, strs, ' ');
-    if (numstrs>4) trim(strs[3]);
-
-    // translate components
-    for (int i=3; i<numstrs; i+=2) {
-        strs[i] = niceTokenStr(strs[i]);
-    }
-
-    // print components
-    printf("ERROR(%d): Syntax error, unexpected %s", yylineno, strs[3]);
-    if (elaborate(strs[3])) {
-        if (yytext[0]=='\'' || yytext[0]=='"') printf(" %s", yytext); 
-        else printf(" \'%s\'", yytext);
-    }
-    if (numstrs>4) printf(",");
-    tinySort(strs+5, numstrs-5, 2, true); 
-    for (int i=4; i<numstrs; i++) {
-        printf(" %s", strs[i]);
-    }
-    printf(".\n");
-    fflush(stdout);   // force a dump of the error
-
-    numErrors++;
-
-    free(space);
-}
 
 %}
 
@@ -275,8 +96,8 @@ program					: declaration_list { syntaxTree = $1; }
 declaration_list		: declaration_list declaration {
 							TreeNode *t = $1;
 							if(t != NULL) {
-								while(t -> sibling != NULL) t = t -> sibling;
-								t -> sibling = $2;
+								while(t->sibling != NULL) t = t->sibling;
+								t->sibling = $2;
 								$$ = $1;
 							} 
 							else {
@@ -393,16 +214,16 @@ type_specifier			: INT {
 
 fun_declaration			: type_specifier ID '(' params ')' statement {
 							$$ = newDeclNode(FunK, $3.lineNum);
-							$$ -> child[0] = $4;
-							$$ -> child[1] = $6;
+							$$->child[0] = $4;
+							$$->child[1] = $6;
                             $$->attr.name = $2.id;
                             $$->lineNum = $2.lineNum;
-							$$ -> type = (ExpType)$1;
+							$$->type = (ExpType)$1;
 						} 
 						| ID '(' params ')' statement {
 							$$ = newDeclNode(FunK, $2.lineNum);
-							$$ -> child[0] = $3;	
-							$$ -> child[1] = $5;
+							$$->child[0] = $3;	
+							$$->child[1] = $5;
                             $$->attr.name = $1.id;
                             $$->lineNum = $1.lineNum;
 						}
@@ -423,8 +244,8 @@ param_list				: param_list ';' param_type_list {
 							yyerrok;
 							TreeNode *t = $1;
 							if(t != NULL) {
-								while(t -> sibling != NULL) t = t -> sibling;
-								t -> sibling = $3;
+								while(t->sibling != NULL) t = t->sibling;
+								t->sibling = $3;
 								$$ = $1;
 							} else
 								$$ = $3;
@@ -440,8 +261,8 @@ param_type_list			: type_specifier param_id_list {
 							TreeNode *t = $2;
 							if(t != NULL) {
 								do {
-									t -> type = (ExpType)$1;
-									t = t -> sibling;
+									t->type = (ExpType)$1;
+									t = t->sibling;
 								} while(t != NULL);
 								
 								$$ = $2;
@@ -455,8 +276,8 @@ param_id_list			: param_id_list ',' param_id {
 							yyerrok;
 							TreeNode *t = $1;
 							if(t != NULL) {
-								while(t -> sibling != NULL) t = t -> sibling;
-								t -> sibling = $3;
+								while(t->sibling != NULL) t = t->sibling;
+								t->sibling = $3;
 								$$ = $1;
 							} else
 								$$ = $3;
@@ -479,7 +300,7 @@ param_id				: ID {
 							$$ = newDeclNode(ParamK, yylineno);
                             $$->attr.name = $1.id;
                             $$->lineNum = $1.lineNum;
-							$$ -> isArray = 1;
+							$$->isArray = 1;
 						}
 						| error { $$ = NULL; }
 						;
@@ -550,10 +371,10 @@ expression_stmt			: expression ';' {
 
 matched_selection_stmt	: IF '(' simple_expression ')' matched ELSE matched {
 							$$ = newStmtNode(IfK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
-							$$ -> child[2] = $7;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
+							$$->child[2] = $7;
 						}
 						| IF '(' error ')' matched ELSE matched { $$ = NULL; }
 						| error { $$ = NULL; }
@@ -561,22 +382,22 @@ matched_selection_stmt	: IF '(' simple_expression ')' matched ELSE matched {
 
 unmatched_selection_stmt: IF '(' simple_expression ')' matched {
 							$$ = newStmtNode(IfK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
 						}
 						| IF '(' simple_expression ')' unmatched {
 							$$ = newStmtNode(IfK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
 						}
 						| IF '(' simple_expression ')' matched ELSE unmatched {
 							$$ = newStmtNode(IfK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
-							$$ -> child[2] = $7;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
+							$$->child[2] = $7;
 						}
 						| IF '(' error ')' statement { $$ = NULL; }
 						| IF '(' error ')' matched ELSE unmatched { $$ = NULL; }
@@ -584,38 +405,38 @@ unmatched_selection_stmt: IF '(' simple_expression ')' matched {
 
 matched_foreach_stmt	: FOREACH '(' mutable IN simple_expression ')' matched {
 							$$ = newStmtNode(ForeachK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
-							$$ -> child[2] = $7;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
+							$$->child[2] = $7;
 						}
 						| FOREACH '(' error ')' matched { $$ = NULL; }
 						;
 
 unmatched_foreach_stmt	: FOREACH '(' mutable IN simple_expression ')' unmatched {
 							$$ = newStmtNode(ForeachK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
-							$$ -> child[2] = $7;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
+							$$->child[2] = $7;
 						}
 						| FOREACH '(' error ')' unmatched { $$ = NULL; }
 						;
 
 matched_while_stmt		: WHILE '(' simple_expression ')' matched {
 							$$ = newStmtNode(WhileK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
 						}
 						| WHILE '(' error ')' matched { $$ = NULL; }
 						;
 
 unmatched_while_stmt	: WHILE '(' simple_expression ')' unmatched {
 							$$ = newStmtNode(WhileK, $1.lineNum);
-							$$ -> attr.name = $1.input;
-							$$ -> child[0] = $3;
-							$$ -> child[1] = $5;
+							$$->attr.name = $1.input;
+							$$->child[0] = $3;
+							$$->child[1] = $5;
 						}
 						| WHILE '(' error ')' unmatched { $$ = NULL; }
 						;
@@ -623,42 +444,42 @@ unmatched_while_stmt	: WHILE '(' simple_expression ')' unmatched {
 return_stmt				: RETURN ';' { 
 							yyerrok;
 							$$ = newStmtNode(ReturnK, $1.lineNum);
-							$$ -> attr.name = $1.input;	
+							$$->attr.name = $1.input;	
 						}
 						| RETURN expression ';' {
 							yyerrok;
 							$$ = newStmtNode(ReturnK, $1.lineNum);
-							$$ -> attr.name = $1.input;	
-							$$ -> child[0] = $2;	
+							$$->attr.name = $1.input;	
+							$$->child[0] = $2;	
 						}
 						;
 
 break_stmt				: BREAK ';' {
 							yyerrok;
 							$$ = newStmtNode(BreakK, $1.lineNum);
-							$$ -> attr.name = $1.input;	
+							$$->attr.name = $1.input;	
 						}
 						;
 
 expression				: mutable assignop expression {
 							$$ = newExpNode(AssignK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> child[1] = $3;
-							$$ -> attr.name = $2.input;
+							$$->child[0] = $1;
+							$$->child[1] = $3;
+							$$->attr.name = $2.input;
 							$$->lineNum = $2.lineNum;
 						}
 						| mutable INC{
 							yyerrok;
 							$$ = newExpNode(AssignK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> attr.name = $2.input;
+							$$->child[0] = $1;
+							$$->attr.name = $2.input;
                             $$->lineNum = $2.lineNum;
 						}
 						| mutable DEC{
 							yyerrok;
 							$$ = newExpNode(AssignK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> attr.name = $2.input;
+							$$->child[0] = $1;
+							$$->attr.name = $2.input;
                             $$->lineNum = $2.lineNum;
 						}
 						| simple_expression {
@@ -680,9 +501,9 @@ assignop				: '=' { $$ = $1; }
 
 simple_expression		: simple_expression '|' and_expression {
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> child[1] = $3;
-							$$ -> attr.name = $2.input;
+							$$->child[0] = $1;
+							$$->child[1] = $3;
+							$$->attr.name = $2.input;
                             $$->lineNum = $2.lineNum;
 						}
 						| and_expression { $$= $1; }
@@ -693,9 +514,9 @@ simple_expression		: simple_expression '|' and_expression {
 
 and_expression			: and_expression '&' unary_rel_expression {
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> child[1] = $3;
-							$$ -> attr.name = $2.input;
+							$$->child[0] = $1;
+							$$->child[1] = $3;
+							$$->attr.name = $2.input;
                             $$->lineNum = $2.lineNum;
 						}
 						| unary_rel_expression { $$= $1; }
@@ -706,8 +527,8 @@ and_expression			: and_expression '&' unary_rel_expression {
 
 unary_rel_expression	: '!' unary_rel_expression {
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> child[0] = $2;
-							$$ -> attr.name = $1.input;
+							$$->child[0] = $2;
+							$$->attr.name = $1.input;
                             $$->lineNum = $1.lineNum;
 						}
 						| rel_expression { $$= $1; }
@@ -716,8 +537,8 @@ unary_rel_expression	: '!' unary_rel_expression {
 
 rel_expression			: sum_expression relop sum_expression { 
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> child[1] = $3;
+							$$->child[0] = $1;
+							$$->child[1] = $3;
 							$$->attr.name = $2.input;
                             $$->lineNum = $2.lineNum;
 						}
@@ -739,9 +560,9 @@ relop					: LESSEQ { $$ = $1; }
 
 sum_expression			: sum_expression sumop term {
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> child[1] = $3;
-							$$ -> attr.name = $2.input;
+							$$->child[0] = $1;
+							$$->child[1] = $3;
+							$$->attr.name = $2.input;
                             $$->lineNum = $2.lineNum;
 						}
 						| term { $$ = $1; }
@@ -756,9 +577,9 @@ sumop					: '+' { $$ = $1; }
 
 term					: term mulop unary_expression {
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> child[0] = $1;
-							$$ -> child[1] = $3;
-							$$ -> attr.name = $2.input;
+							$$->child[0] = $1;
+							$$->child[1] = $3;
+							$$->attr.name = $2.input;
                             $$->lineNum = $2.lineNum;
 						}
 						| unary_expression { $$ = $1; }
@@ -774,9 +595,9 @@ mulop					: '*' { $$ = $1; }
 
 unary_expression		: unaryop unary_expression {
 							$$ = newExpNode(OpK, yylineno);
-							$$ -> attr.name = $1.input;
+							$$->attr.name = $1.input;
                             $$->lineNum = $1.lineNum;
-							$$ -> child[0] = $2;	
+							$$->child[0] = $2;	
 						}
 						| factor { $$ = $1; }
 						| unaryop error { $$ = NULL; }
@@ -822,7 +643,7 @@ call					: ID '(' args ')' {
 							$$ = newExpNode(CallK, $2.lineNum);
                             $$->attr.name = $1.id;
                             $$->lineNum = $1.lineNum; 
-							$$ -> child[0] = $3;	
+							$$->child[0] = $3;	
 						}
 						| ID '(' error { $$ = NULL; }
 						;
@@ -835,8 +656,8 @@ arg_list				: arg_list ',' expression {
 							yyerrok;
 							TreeNode *t = $1;
 							if(t != NULL) {
-								while(t -> sibling != NULL) t = t -> sibling;
-								t -> sibling = $3;
+								while(t->sibling != NULL) t = t->sibling;
+								t->sibling = $3;
 								$$ = $1;
 							} else {
 								$$ = $3;

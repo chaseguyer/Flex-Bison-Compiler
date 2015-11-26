@@ -4,9 +4,11 @@
 #include"symTab.cpp"
 #include"emitcode.cpp"
 #include"codegen.cpp"
-#include<stdlib.h>
-#include<string.h>
+#include"synErr.cpp"
 #include"c-.tab.h"
+#include<stdlib.h>
+#include<stdio.h>
+#include<string>
 
 char makeEscapeCharC(char* input) {
 	if(strlen(input) == 3) 

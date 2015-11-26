@@ -1,5 +1,6 @@
-#include "symTab.h"
-#include "tree.h"
+#include<string>
+#include"symTab.h"
+#include"tree.h"
 
 using namespace std;
 

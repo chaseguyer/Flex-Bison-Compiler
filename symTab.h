@@ -42,7 +42,6 @@ public:
 	void *lookupGlobal(string sym);
 	void *lookupDepth(string sym, int depth); //looks up string at depth x
 												// returns null if it cant find it
-
 	bool insert(string sym, void *ptr);
 
 	bool insertGlobal(string sym, void *ptr);

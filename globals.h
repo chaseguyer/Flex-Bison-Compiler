@@ -5,6 +5,8 @@
 #include<stdlib.h>
 #include<string.h>
 
+#define MAXCHILDREN 3
+
 typedef enum {StmtK, ExpK, DeclK} NodeKind;
 typedef enum {FunK, VarK, ParamK} DeclKind;
 typedef enum {IfK, WhileK, ForeachK, CompK, ReturnK, BreakK} StmtKind;
@@ -12,10 +14,19 @@ typedef enum {OpK, ConstK, IdK, CallK, AssignK} ExpKind;
 typedef enum {EqK, LesseqK, LessK, GrtK, GrteqK, NoteqK, PlusK, MinusK, StarK, FwdslashK, ModK, QuesK} OpKind;
 typedef enum {Void, Integer, Boolean, Character, String, Error, Undefined, CharOrInt} ExpType;
 
-#define MAXCHILDREN 3
-typedef struct treeNode {
-    struct treeNode *child[MAXCHILDREN];	// children of the node
-    struct treeNode *sibling;				// siblings for the node
+class Token {
+public:
+    char *input, *sconst, *id;
+    char cconst;
+    int nconst, bconst;
+    int stringLen;
+    int lineNum;
+};
+
+class TreeNode {
+public:
+    TreeNode *child[MAXCHILDREN];	// children of the node
+    TreeNode *sibling;				// siblings for the node
  
 	// what kind of node
 	int lineNum;				// linenum relevant to this node
@@ -43,6 +54,6 @@ typedef struct treeNode {
 	int arrayLen;				// length of array
 	int offset;					// where we are from the beginning of the frame
 	int size;					// how much memory we take up
-} TreeNode;
+};
 
 #endif
